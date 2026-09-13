@@ -183,7 +183,7 @@ export async function POST(
         const sessionToken =
             await createSessionToken(
                 {
-                    id: user.discordId,
+                    id: user.id,
                     username:
                         user.username,
                     global_name:
@@ -196,7 +196,7 @@ export async function POST(
 
         const profileCookie =
             createProfileCookie({
-                id: user.discordId,
+                id: user.id,
                 username:
                     user.username,
                 displayName:
@@ -210,7 +210,7 @@ export async function POST(
             NextResponse.json({
                 success: true,
                 user: {
-                    id: user.discordId,
+                    id: user.id,
                     username:
                         user.username,
                     displayName:

@@ -37,9 +37,15 @@ function hashToken(token: string): string {
 function isValidUserId(
   id: string
 ): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    id
-  );
+  const uuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      id
+    );
+
+  const discordSnowflake =
+    /^\d{17,20}$/.test(id);
+
+  return uuid || discordSnowflake;
 }
 
 function getDeviceType(

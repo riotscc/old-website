@@ -402,17 +402,17 @@ export async function completeDiscordOnboarding(data: {
 }
 
 export async function verifyUserPassword(
-    discordId: string,
+    userId: string,
     password: string
 ): Promise<boolean> {
     const result = await pool.query(
         `
         SELECT password_hash
         FROM users
-        WHERE discord_id = $1
+        WHERE id = $1
         LIMIT 1
         `,
-        [discordId]
+        [userId]
     );
 
     const passwordHash =

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
         const validPassword =
             await verifyUserPassword(
-                user.discordId,
+                user.id,
                 password
             );
 
