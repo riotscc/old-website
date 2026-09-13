@@ -12,9 +12,9 @@ export async function sendVerificationEmail({
     code,
 }: SendVerificationEmailOptions) {
     const { data, error } = await resend.emails.send({
-        from: "hushd.lol <noreply@emails.austricomms.org>",
+        from: "carts.lol <noreply@carts.lol>",
         to: [email],
-        subject: `${code} is your hushd.lol sign-in code`,
+        subject: `${code} is your carts.lol sign-in code`,
         html: `
             <!DOCTYPE html>
             <html lang="en">
@@ -25,7 +25,7 @@ export async function sendVerificationEmail({
                         content="width=device-width, initial-scale=1.0"
                     />
                     <meta name="color-scheme" content="light" />
-                    <title>Your hushd.lol sign-in code</title>
+                    <title>Your carts.lol sign-in code</title>
                 </head>
 
                 <body
@@ -52,7 +52,7 @@ export async function sendVerificationEmail({
                             opacity: 0;
                         "
                     >
-                        ${code} is your hushd.lol sign-in code. It expires in 10 minutes.
+                        ${code} is your carts.lol sign-in code. It expires in 10 minutes.
                     </div>
 
                     <table
@@ -102,7 +102,7 @@ export async function sendVerificationEmail({
                                                     color: #2832f9;
                                                 "
                                             >
-                                                hushd.lol
+                                                carts.lol
                                             </div>
 
                                             <h1
@@ -123,7 +123,7 @@ export async function sendVerificationEmail({
                                                         border-radius: 2px;
                                                     "
                                                 >
-                                                    hushd.lol
+                                                    carts.lol
                                                 </span>
                                                 sign-in code
                                             </h1>
@@ -197,7 +197,7 @@ export async function sendVerificationEmail({
                                                     color: #5f5f67;
                                                 "
                                             >
-                                                hushd.lol
+                                                carts.lol
                                             </span>
 
                                             <span
@@ -210,7 +210,7 @@ export async function sendVerificationEmail({
                                             </span>
 
                                             <a
-                                                href="https://hushd.lol"
+                                                href="https://carts.lol"
                                                 style="
                                                     color: #77777f;
                                                     text-decoration: none;
@@ -229,7 +229,7 @@ export async function sendVerificationEmail({
                                             </span>
 
                                             <a
-                                                href="https://hushd.lol/docs"
+                                                href="https://carts.lol/docs"
                                                 style="
                                                     color: #77777f;
                                                     text-decoration: none;
@@ -244,7 +244,7 @@ export async function sendVerificationEmail({
                                                     color: #9a9aa1;
                                                 "
                                             >
-                                                © ${new Date().getFullYear()} hushd.lol
+                                                © ${new Date().getFullYear()} carts.lol
                                             </div>
                                         </td>
                                     </tr>
