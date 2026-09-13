@@ -30,6 +30,6 @@
     "**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "hooks/use-mobile.tss"  ],
   "exclude": ["node_modules"]
 }
