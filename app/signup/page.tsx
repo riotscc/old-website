@@ -180,7 +180,7 @@ export default function SignupPage() {
                 />
 
                 <span className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 text-[14px] font-medium text-[#5862ff]">
-                  hushd.lol/
+                  carts.lol/
                 </span>
 
                 <Input
