@@ -32,7 +32,11 @@ export default function ProfileViewsChart({
     }
 
     const updateWidth = () => {
-      setContainerWidth(Math.max(element.clientWidth, 300));
+      const width = element.getBoundingClientRect().width;
+
+      if (width > 0) {
+        setContainerWidth(width);
+      }
     };
 
     updateWidth();
@@ -43,8 +47,11 @@ export default function ProfileViewsChart({
 
     observer.observe(element);
 
+    window.addEventListener("resize", updateWidth);
+
     return () => {
       observer.disconnect();
+      window.removeEventListener("resize", updateWidth);
     };
   }, []);
 
@@ -52,18 +59,24 @@ export default function ProfileViewsChart({
     setActiveIndex(null);
   }, [range, points]);
 
-  const normalized = React.useMemo(
-    () => makeRangePoints(points, range),
-    [points, range]
-  );
+  const normalized = React.useMemo(() => {
+    return [...points]
+      .map((point) => ({
+        date: String(point.date).slice(0, 10),
+        views: Number(point.views ?? 0),
+      }))
+      .filter((point) => point.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [points]);
 
   const maxViews = Math.max(
-    2,
+    1,
     ...normalized.map((point) => Number(point.views || 0))
   );
 
-  const width = containerWidth;
+  const width = Math.max(containerWidth, 300);
   const height = 220;
+
   const paddingLeft = 42;
   const paddingRight = 18;
   const paddingTop = 20;
@@ -88,7 +101,7 @@ export default function ProfileViewsChart({
     const y =
       paddingTop +
       chartHeight -
-      (Number(point.views || 0) / maxViews) * chartHeight;
+      (point.views / maxViews) * chartHeight;
 
     return {
       ...point,
@@ -126,37 +139,73 @@ export default function ProfileViewsChart({
       : null;
 
   const totalViews = normalized.reduce(
-    (total, point) => total + Number(point.views || 0),
+    (total, point) => total + point.views,
     0
   );
 
-  const yTicks = React.useMemo(() => {
-    const middle = Math.ceil(maxViews / 2);
+  const yMax =
+    maxViews <= 2
+      ? 2
+      : Math.ceil(maxViews);
 
-    return [
-      {
-        value: maxViews,
-        y: paddingTop,
-      },
-      {
-        value: middle,
-        y: paddingTop + chartHeight / 2,
-      },
-      {
-        value: 0,
-        y: baselineY,
-      },
-    ];
-  }, [maxViews, chartHeight, baselineY]);
+  const yTicks = [
+    {
+      value: yMax,
+      y: paddingTop,
+    },
+    {
+      value: Math.round(yMax / 2),
+      y: paddingTop + chartHeight / 2,
+    },
+    {
+      value: 0,
+      y: baselineY,
+    },
+  ];
+
+  const plottedCoordinates = coordinates.map((point) => {
+    const y =
+      paddingTop +
+      chartHeight -
+      (point.views / yMax) * chartHeight;
+
+    return {
+      ...point,
+      y,
+    };
+  });
+
+  const plottedLinePath = plottedCoordinates
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`
+    )
+    .join(" ");
+
+  const plottedAreaPath =
+    plottedCoordinates.length > 1
+      ? `${plottedLinePath} L ${
+          plottedCoordinates[plottedCoordinates.length - 1].x
+        } ${baselineY} L ${plottedCoordinates[0].x} ${baselineY} Z`
+      : "";
+
+  const plottedActivePoint =
+    activeIndex !== null
+      ? plottedCoordinates[activeIndex] ?? null
+      : null;
 
   function handlePointerMove(
     event: React.PointerEvent<SVGSVGElement>
   ) {
-    if (!coordinates.length) {
+    if (!plottedCoordinates.length) {
       return;
     }
 
     const rect = event.currentTarget.getBoundingClientRect();
+
+    if (!rect.width) {
+      return;
+    }
 
     const pointerX =
       ((event.clientX - rect.left) / rect.width) * width;
@@ -164,9 +213,13 @@ export default function ProfileViewsChart({
     let closestIndex = 0;
     let closestDistance = Number.POSITIVE_INFINITY;
 
-    for (let index = 0; index < coordinates.length; index++) {
+    for (
+      let index = 0;
+      index < plottedCoordinates.length;
+      index++
+    ) {
       const distance = Math.abs(
-        coordinates[index].x - pointerX
+        plottedCoordinates[index].x - pointerX
       );
 
       if (distance < closestDistance) {
@@ -178,19 +231,19 @@ export default function ProfileViewsChart({
     setActiveIndex(closestIndex);
   }
 
-  const tooltipWidth = 145;
+  const tooltipWidth = 150;
 
-  const tooltipLeft = activePoint
+  const tooltipLeft = plottedActivePoint
     ? Math.min(
-        Math.max(activePoint.x + 10, 8),
+        Math.max(plottedActivePoint.x + 12, 8),
         Math.max(width - tooltipWidth - 8, 8)
       )
     : 8;
 
-  const tooltipTop = activePoint
+  const tooltipTop = plottedActivePoint
     ? Math.max(
         5,
-        Math.min(activePoint.y - 60, height - 70)
+        Math.min(plottedActivePoint.y - 62, height - 72)
       )
     : 5;
 
@@ -229,13 +282,18 @@ export default function ProfileViewsChart({
       >
         {loading ? (
           <div className="h-full w-full animate-pulse rounded-[14px] bg-white/[0.02]" />
+        ) : normalized.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-[10px] text-white/25">
+              No analytics data available.
+            </p>
+          </div>
         ) : (
           <>
             <svg
               width="100%"
               height="100%"
               viewBox={`0 0 ${width} ${height}`}
-              preserveAspectRatio="none"
               className="block h-full w-full touch-none"
               onPointerMove={handlePointerMove}
               onPointerLeave={() => setActiveIndex(null)}
@@ -270,8 +328,8 @@ export default function ProfileViewsChart({
                 </linearGradient>
               </defs>
 
-              {yTicks.map((tick) => (
-                <g key={tick.value}>
+              {yTicks.map((tick, index) => (
+                <g key={`${tick.value}-${index}`}>
                   <line
                     x1={paddingLeft}
                     x2={width - paddingRight}
@@ -294,10 +352,10 @@ export default function ProfileViewsChart({
                 </g>
               ))}
 
-              {areaPath && (
+              {plottedAreaPath && (
                 <motion.path
-                  key={`area-${range}`}
-                  d={areaPath}
+                  key={`area-${range}-${totalViews}`}
+                  d={plottedAreaPath}
                   fill="url(#profile-views-area)"
                   initial={{
                     opacity: 0,
@@ -311,10 +369,10 @@ export default function ProfileViewsChart({
                 />
               )}
 
-              {coordinates.length > 1 && (
+              {plottedCoordinates.length > 1 && (
                 <motion.path
-                  key={`line-${range}`}
-                  d={linePath}
+                  key={`line-${range}-${totalViews}`}
+                  d={plottedLinePath}
                   fill="none"
                   stroke="#2832F9"
                   strokeWidth="2"
@@ -322,30 +380,33 @@ export default function ProfileViewsChart({
                   strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                   initial={{
+                    pathLength: 0,
                     opacity: 0,
                   }}
                   animate={{
+                    pathLength: 1,
                     opacity: 1,
                   }}
                   transition={{
-                    duration: 0.2,
+                    duration: 0.5,
+                    ease: [0.22, 1, 0.36, 1],
                   }}
                 />
               )}
 
-              {coordinates.map((point, index) => {
+              {plottedCoordinates.map((point, index) => {
                 const showLabel =
                   index % labelStep === 0 ||
-                  index === coordinates.length - 1;
+                  index === plottedCoordinates.length - 1;
 
                 const showPoint =
                   range <= 7 ||
                   (range === 30 && index % 2 === 0) ||
                   (range === 90 && index % 5 === 0) ||
-                  index === coordinates.length - 1;
+                  index === plottedCoordinates.length - 1;
 
                 return (
-                  <g key={point.date}>
+                  <g key={`${point.date}-${index}`}>
                     {showPoint && (
                       <circle
                         cx={point.x}
@@ -373,20 +434,20 @@ export default function ProfileViewsChart({
                 );
               })}
 
-              {coordinates.length === 1 && (
+              {plottedCoordinates.length === 1 && (
                 <circle
-                  cx={coordinates[0].x}
-                  cy={coordinates[0].y}
-                  r="3"
+                  cx={plottedCoordinates[0].x}
+                  cy={plottedCoordinates[0].y}
+                  r="3.5"
                   fill="#2832F9"
                 />
               )}
 
-              {activePoint && (
+              {plottedActivePoint && (
                 <>
                   <line
-                    x1={activePoint.x}
-                    x2={activePoint.x}
+                    x1={plottedActivePoint.x}
+                    x2={plottedActivePoint.x}
                     y1={paddingTop}
                     y2={baselineY}
                     stroke="rgba(255,255,255,0.12)"
@@ -396,16 +457,16 @@ export default function ProfileViewsChart({
                   />
 
                   <circle
-                    cx={activePoint.x}
-                    cy={activePoint.y}
+                    cx={plottedActivePoint.x}
+                    cy={plottedActivePoint.y}
                     r="8"
                     fill="#2832F9"
                     fillOpacity="0.16"
                   />
 
                   <circle
-                    cx={activePoint.x}
-                    cy={activePoint.y}
+                    cx={plottedActivePoint.x}
+                    cy={plottedActivePoint.y}
                     r="3.5"
                     fill="#2832F9"
                     stroke="white"
@@ -425,7 +486,7 @@ export default function ProfileViewsChart({
             </svg>
 
             <AnimatePresence>
-              {activePoint && (
+              {plottedActivePoint && activePoint && (
                 <motion.div
                   key={activePoint.date}
                   initial={{
@@ -477,46 +538,18 @@ export default function ProfileViewsChart({
   );
 }
 
-function makeRangePoints(
-  points: ProfileViewsPoint[],
-  days: AnalyticsRange
-) {
-  const mapped = new Map(
-    points.map((point) => [
-      point.date.slice(0, 10),
-      Number(point.views || 0),
-    ])
-  );
+function formatChartDate(value: string) {
+  const parts = value.slice(0, 10).split("-");
 
-  const result: ProfileViewsPoint[] = [];
-
-  for (
-    let offset = days - 1;
-    offset >= 0;
-    offset--
-  ) {
-    const date = new Date();
-
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() - offset);
-
-    const key = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, "0"),
-      String(date.getDate()).padStart(2, "0"),
-    ].join("-");
-
-    result.push({
-      date: key,
-      views: mapped.get(key) ?? 0,
-    });
+  if (parts.length !== 3) {
+    return value;
   }
 
-  return result;
-}
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
 
-function formatChartDate(value: string) {
-  const date = new Date(`${value}T12:00:00`);
+  const date = new Date(year, month - 1, day, 12, 0, 0);
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -529,7 +562,17 @@ function formatChartDate(value: string) {
 }
 
 function formatTooltipDate(value: string) {
-  const date = new Date(`${value}T12:00:00`);
+  const parts = value.slice(0, 10).split("-");
+
+  if (parts.length !== 3) {
+    return value;
+  }
+
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+
+  const date = new Date(year, month - 1, day, 12, 0, 0);
 
   if (Number.isNaN(date.getTime())) {
     return value;
