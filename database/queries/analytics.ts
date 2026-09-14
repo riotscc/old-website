@@ -132,6 +132,52 @@ export async function getProfileCountryStats(
     return result.rows;
 }
 
+export async function getProfileViewCounts(
+  userIds: string[],
+  days?: number | null
+): Promise<Map<string, number>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const result =
+    days && days > 0
+      ? await pool.query(
+          `
+            SELECT
+              profile_user_id,
+              COUNT(*)::int AS views
+            FROM profile_views
+            WHERE profile_user_id = ANY($1::uuid[])
+              AND created_at >= NOW() - ($2 * INTERVAL '1 day')
+            GROUP BY profile_user_id
+          `,
+          [userIds, days]
+        )
+      : await pool.query(
+          `
+            SELECT
+              profile_user_id,
+              COUNT(*)::int AS views
+            FROM profile_views
+            WHERE profile_user_id = ANY($1::uuid[])
+            GROUP BY profile_user_id
+          `,
+          [userIds]
+        );
+
+  const counts = new Map<string, number>();
+
+  for (const row of result.rows) {
+    counts.set(
+      String(row.profile_user_id),
+      Number(row.views ?? 0)
+    );
+  }
+
+  return counts;
+}
+
 export async function getProfileReferrerStats(
     profileUserId: string,
     days = 30

@@ -72,6 +72,68 @@ async function hashPassword(
     return `${salt.toString("hex")}:${derivedKey.toString("hex")}`;
 }
 
+export type LeaderboardSort =
+    | "views"
+    | "likes"
+    | "followers";
+
+export interface LeaderboardUser {
+    id: string;
+    username: string;
+    globalName: string | null;
+    avatar: string | null;
+    views: number;
+    likes: number;
+    followers: number;
+    plan: UserPlan;
+}
+
+export async function getLeaderboardUsers(
+    sort: LeaderboardSort = "views"
+): Promise<LeaderboardUser[]> {
+    const allowedSorts = new Set<LeaderboardSort>([
+        "views",
+        "likes",
+        "followers",
+    ]);
+
+    const safeSort: LeaderboardSort =
+        allowedSorts.has(sort)
+            ? sort
+            : "views";
+
+    const result = await pool.query(`
+        SELECT
+            id,
+            username,
+            global_name,
+            avatar,
+            COALESCE(views, 0) AS views,
+            COALESCE(likes, 0) AS likes,
+            COALESCE(followers, 0) AS followers,
+            plan
+        FROM users
+        WHERE username IS NOT NULL
+          AND username <> ''
+        ORDER BY ${safeSort} DESC, created_at ASC
+    `);
+
+    return result.rows.map((row) => ({
+        id: String(row.id),
+        username: String(row.username),
+        globalName: row.global_name
+            ? String(row.global_name)
+            : null,
+        avatar: row.avatar
+            ? String(row.avatar)
+            : null,
+        views: Number(row.views ?? 0),
+        likes: Number(row.likes ?? 0),
+        followers: Number(row.followers ?? 0),
+        plan: row.plan as UserPlan,
+    }));
+}
+
 export async function verifyPassword(
     password: string,
     storedHash: string

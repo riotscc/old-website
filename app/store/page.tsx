@@ -10,27 +10,28 @@ import {
   SparklesIcon,
   CheckmarkBadge02Icon,
   MinusSignIcon,
+  Image03Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 
 type AddonId =
-  | "alias-credit"
+  | "alias-token"
   | "custom-badge"
-  | "verified-badge";
+  | "image-host";
 
 type QuantityState = Record<AddonId, number>;
 
 const premiumFeatures = [
   "Premium badge",
-  "1 free alias credit",
+  "1 free alias token",
   "10 alias slots",
   "No profile watermark",
   "Click sounds",
   "Background themes",
   "Border animations",
-  "480 MB file uploads",
+  "550 MB file uploads",
   "Up to 10 links",
   "Unlimited music uploads",
   "Email service",
@@ -47,13 +48,13 @@ const freeFeatures = [
 
 const addons = [
   {
-    id: "alias-credit" as const,
-    name: "Alias credit",
+    id: "alias-token" as const,
+    name: "Alias Token",
     price: "$1.49",
     description: "Claim another username on carts.lol.",
     icon: HashtagIcon,
     features: [
-      "One alias credit",
+      "One Alias Token",
       "Points to your main profile",
       "Lifetime — no renewal",
     ],
@@ -61,8 +62,8 @@ const addons = [
   },
   {
     id: "custom-badge" as const,
-    name: "Custom badge",
-    price: "$4.49",
+    name: "Custom Badge",
+    price: "$2.49",
     description:
       "Create your own custom badge with a unique icon and name.",
     icon: SparklesIcon,
@@ -75,16 +76,17 @@ const addons = [
     quantity: true,
   },
   {
-    id: "verified-badge" as const,
-    name: "Verified badge",
-    price: "$14.99",
+    id: "image-host" as const,
+    name: "Image Host",
+    price: "$4.99",
     description:
-      "Enhance your profile with the carts.lol verified badge.",
-    icon: CheckmarkBadge02Icon,
+      "Unlock premium image hosting with expanded storage, larger uploads, and exclusive perks.",
+    icon: Image03Icon,
     features: [
-      "Verified badge on profile",
-      "Stand out in search",
-      "Lifetime credibility",
+      "Exclusive Image Host Badge",
+      "Special Discord Server Role",
+      "File size limit (250 MB)",
+      "Expanded storage (100 GB)",
     ],
     quantity: false,
     primary: true,
@@ -97,9 +99,9 @@ export default function StorePage() {
 
   const [quantities, setQuantities] =
     useState<QuantityState>({
-      "alias-credit": 1,
+      "alias-token": 1,
       "custom-badge": 1,
-      "verified-badge": 1,
+      "image-host": 1,
     });
 
   function updateQuantity(

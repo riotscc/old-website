@@ -15,15 +15,17 @@ import {
   Layout01Icon,
   Link01Icon,
   Logout01Icon,
+  Home01Icon,
+  DiscordIcon,
   MoreVerticalIcon,
   PaintBoardIcon,
   Search01Icon,
   Settings01Icon,
   Share08Icon,
-  SparklesIcon,
   UserIcon,
   UserSwitchIcon,
 } from "@hugeicons/core-free-icons";
+import NoPremium from "@/components/dashboard/no-premium";
 
 type HugeIconType = React.ComponentProps<typeof HugeiconsIcon>["icon"];
 
@@ -69,6 +71,17 @@ const customizeLinks = [
   {
     label: "Layout",
     href: "/dashboard/customize/layout",
+  },
+];
+
+const premiumLinks = [
+  {
+    label: "General",
+    href: "/dashboard/premium/general",
+  },
+  {
+    label: "Metadata",
+    href: "/dashboard/premium/metadata",
   },
 ];
 
@@ -122,9 +135,15 @@ const searchItems: SearchItem[] = [
     icon: Layout01Icon,
   },
   {
-    label: "Premium",
-    href: "/dashboard/premium",
-    section: "Dashboard",
+    label: "General",
+    href: "/dashboard/premium/general",
+    section: "Premium",
+    icon: Diamond02Icon,
+  },
+  {
+    label: "Metadata",
+    href: "/dashboard/premium/metadata",
+    section: "Premium",
     icon: Diamond02Icon,
   },
 ];
@@ -137,6 +156,10 @@ export default function CustomSidebar() {
   const [loadingUser, setLoadingUser] = React.useState(true);
   const [accountOpen, setAccountOpen] = React.useState(true);
   const [customizeOpen, setCustomizeOpen] = React.useState(false);
+  const [premiumOpen, setPremiumOpen] = React.useState(() =>
+    pathname.startsWith("/dashboard/premium")
+  );
+  const [noPremiumOpen, setNoPremiumOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
@@ -147,43 +170,59 @@ export default function CustomSidebar() {
   React.useEffect(() => {
     let mounted = true;
 
-    fetch("/api/auth/me", {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return response.json();
-      })
-      .then((data) => {
-        if (!mounted) return;
+    async function loadUser() {
+      try {
+        const [authResponse, planResponse] = await Promise.all([
+          fetch("/api/auth/me", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/account/plan", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
 
-        if (data?.user) {
-          setUser({
-            id: data.user.id,
-            username:
-              data.user.username ||
-              data.user.name ||
-              data.user.displayName ||
-              "user",
-            displayName:
-              data.user.displayName ||
-              data.user.globalName ||
-              data.user.name ||
-              data.user.username ||
-              "User",
-            avatar: data.user.avatar || null,
-            plan: data.user.plan || "Free",
-          });
+        if (!authResponse.ok || !mounted) {
+          return;
         }
-      })
-      .catch(() => {})
-      .finally(() => {
+
+        const authData = await authResponse.json();
+        const planData = planResponse.ok
+          ? await planResponse.json()
+          : null;
+
+        if (!mounted || !authData?.user) {
+          return;
+        }
+
+        setUser({
+          id: authData.user.id,
+          username:
+            authData.user.username ||
+            authData.user.name ||
+            authData.user.displayName ||
+            "user",
+          displayName:
+            authData.user.displayName ||
+            authData.user.globalName ||
+            authData.user.name ||
+            authData.user.username ||
+            "User",
+          avatar: authData.user.avatar || null,
+          plan: planData?.plan || "free",
+        });
+      } catch {
+      } finally {
         if (mounted) {
           setLoadingUser(false);
         }
-      });
+      }
+    }
+
+    loadUser();
 
     return () => {
       mounted = false;
@@ -200,6 +239,7 @@ export default function CustomSidebar() {
       if (event.key === "Escape") {
         setSearchOpen(false);
         setUserMenuOpen(false);
+        setNoPremiumOpen(false);
       }
     }
 
@@ -232,6 +272,10 @@ export default function CustomSidebar() {
   React.useEffect(() => {
     setSearchOpen(false);
     setSearchQuery("");
+
+    if (pathname.startsWith("/dashboard/premium")) {
+      setPremiumOpen(true);
+    }
   }, [pathname]);
 
   const filteredItems = React.useMemo(() => {
@@ -250,20 +294,21 @@ export default function CustomSidebar() {
   }, [searchQuery]);
 
   const username = user?.username || "yourname";
+  const isPremium = user?.plan?.toLowerCase() === "premium";
+
+  function handlePremiumItem(href: string) {
+    if (loadingUser) return;
+
+    if (!isPremium) {
+      setNoPremiumOpen(true);
+      return;
+    }
+
+    router.push(href);
+  }
 
   async function handleShare() {
     const url = `${window.location.origin}/${username}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${user?.displayName || username} on carts.lol`,
-          url,
-        });
-
-        return;
-      } catch {}
-    }
 
     try {
       await navigator.clipboard.writeText(url);
@@ -332,50 +377,49 @@ export default function CustomSidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <SidebarGroup
-            title="Account"
-            icon={UserIcon}
-            open={accountOpen}
-            onToggle={() => setAccountOpen((value) => !value)}
-          >
-            {accountLinks.map((item, index) => (
-              <NestedItem
-                key={item.href}
-                index={index}
-                label={item.label}
-                href={item.href}
-                active={
-                  item.href === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname === item.href ||
-                      pathname.startsWith(`${item.href}/`)
-                }
-              />
-            ))}
-          </SidebarGroup>
+          <div className="space-y-1">
+            <SidebarGroup
+              title="Account"
+              icon={UserIcon}
+              open={accountOpen}
+              onToggle={() => setAccountOpen((value) => !value)}
+            >
+              {accountLinks.map((item, index) => (
+                <NestedItem
+                  key={item.href}
+                  index={index}
+                  label={item.label}
+                  href={item.href}
+                  active={
+                    item.href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`)
+                  }
+                />
+              ))}
+            </SidebarGroup>
 
-          <SidebarGroup
-            title="Customize"
-            icon={PaintBoardIcon}
-            open={customizeOpen}
-            onToggle={() => setCustomizeOpen((value) => !value)}
-            className="mt-1"
-          >
-            {customizeLinks.map((item, index) => (
-              <NestedItem
-                key={item.href}
-                index={index}
-                label={item.label}
-                href={item.href}
-                active={
-                  pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`)
-                }
-              />
-            ))}
-          </SidebarGroup>
+            <SidebarGroup
+              title="Customize"
+              icon={PaintBoardIcon}
+              open={customizeOpen}
+              onToggle={() => setCustomizeOpen((value) => !value)}
+            >
+              {customizeLinks.map((item, index) => (
+                <NestedItem
+                  key={item.href}
+                  index={index}
+                  label={item.label}
+                  href={item.href}
+                  active={
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`)
+                  }
+                />
+              ))}
+            </SidebarGroup>
 
-          <div className="mt-2 space-y-1">
             <MainItem
               label="Links"
               href="/dashboard/links"
@@ -396,25 +440,27 @@ export default function CustomSidebar() {
               }
             />
 
-            <MainItem
-              label="Premium"
-              href="/dashboard/premium"
+            <SidebarGroup
+              title="Premium"
               icon={Diamond02Icon}
-              active={
-                pathname === "/dashboard/premium" ||
-                pathname.startsWith("/dashboard/premium/")
-              }
+              open={premiumOpen}
+              onToggle={() => setPremiumOpen((value) => !value)}
+              active={pathname.startsWith("/dashboard/premium")}
               premium
-              trailing={
-                <HugeiconsIcon
-                  icon={ArrowDown01Icon}
-                  size={13}
-                  color="currentColor"
-                  strokeWidth={1.7}
-                  className="text-white/30"
+            >
+              {premiumLinks.map((item, index) => (
+                <PremiumNestedItem
+                  key={item.href}
+                  index={index}
+                  label={item.label}
+                  active={
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`)
+                  }
+                  onClick={() => handlePremiumItem(item.href)}
                 />
-              }
-            />
+              ))}
+            </SidebarGroup>
           </div>
         </nav>
 
@@ -474,18 +520,33 @@ export default function CustomSidebar() {
                   className="absolute bottom-[calc(100%+8px)] left-0 w-full overflow-hidden rounded-[15px] border border-white/[0.08] bg-[#111111] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.6)]"
                 >
                   <Link
-                    href="/dashboard/settings"
+                    href="/"
                     onClick={() => setUserMenuOpen(false)}
                     className="flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[12px] font-medium text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white"
                   >
                     <HugeiconsIcon
-                      icon={Settings01Icon}
+                      icon={Home01Icon}
                       size={14}
                       color="currentColor"
                       strokeWidth={1.8}
                     />
 
-                    Account settings
+                    Home
+                  </Link>
+
+                  <Link
+                    href="/discord"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[12px] font-medium text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white"
+                  >
+                    <HugeiconsIcon
+                      icon={DiscordIcon}
+                      size={14}
+                      color="currentColor"
+                      strokeWidth={1.8}
+                    />
+
+                    Discord Server
                   </Link>
 
                   <button
@@ -548,6 +609,11 @@ export default function CustomSidebar() {
           </div>
         </div>
       </aside>
+
+      <NoPremium
+        open={noPremiumOpen}
+        onClose={() => setNoPremiumOpen(false)}
+      />
 
       <AnimatePresence>
         {searchOpen && (
@@ -637,7 +703,15 @@ export default function CustomSidebar() {
                         key={item.href}
                         item={item}
                         index={index}
-                        onClick={() => router.push(item.href)}
+                        onClick={() => {
+                          if (item.section === "Premium") {
+                            setSearchOpen(false);
+                            handlePremiumItem(item.href);
+                            return;
+                          }
+
+                          router.push(item.href);
+                        }}
                       />
                     ))
                   ) : (
@@ -694,6 +768,8 @@ function SidebarGroup({
   onToggle,
   children,
   className = "",
+  active = false,
+  premium = false,
 }: {
   title: string;
   icon: HugeIconType;
@@ -701,6 +777,8 @@ function SidebarGroup({
   onToggle: () => void;
   children: React.ReactNode;
   className?: string;
+  active?: boolean;
+  premium?: boolean;
 }) {
   return (
     <div className={className}>
@@ -708,17 +786,27 @@ function SidebarGroup({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="group flex h-[38px] w-full items-center rounded-[9px] px-1.5 text-left transition-colors duration-200 hover:bg-white/[0.025]"
+        className={`group flex h-[40px] w-full items-center rounded-[10px] px-1.5 text-left transition-colors duration-200 ${
+          active
+            ? "bg-white/[0.055] text-white"
+            : "text-white/80 hover:bg-white/[0.025] hover:text-white"
+        }`}
       >
         <HugeiconsIcon
           icon={icon}
           size={15}
           color="currentColor"
           strokeWidth={1.8}
-          className="shrink-0 text-white/75 transition-colors group-hover:text-white"
+          className={`shrink-0 transition-colors ${
+            premium
+              ? "text-[#ffe600]"
+              : active
+                ? "text-white"
+                : "text-white/65 group-hover:text-white"
+          }`}
         />
 
-        <span className="ml-2.5 flex-1 text-[12px] font-semibold text-white/90">
+        <span className="ml-2.5 flex-1 text-[12px] font-semibold">
           {title}
         </span>
 
@@ -842,6 +930,58 @@ function NestedItem({
 
         {label}
       </Link>
+    </motion.div>
+  );
+}
+
+function PremiumNestedItem({
+  label,
+  active,
+  index,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  index: number;
+  onClick: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{
+        opacity: 0,
+        x: -6,
+      }}
+      animate={{
+        opacity: 1,
+        x: 0,
+      }}
+      transition={{
+        duration: 0.22,
+        delay: index * 0.025,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className={`relative flex h-[30px] w-full items-center text-left text-[11px] font-medium transition-colors duration-150 ${
+          active ? "text-white" : "text-white/35 hover:text-white/75"
+        }`}
+      >
+        {active && (
+          <motion.span
+            layoutId="sidebar-premium-nested-active"
+            className="absolute -left-[19px] h-[16px] w-px rounded-full bg-white/60"
+            transition={{
+              type: "spring",
+              stiffness: 400,
+              damping: 30,
+            }}
+          />
+        )}
+
+        {label}
+      </button>
     </motion.div>
   );
 }

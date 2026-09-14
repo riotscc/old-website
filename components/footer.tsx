@@ -33,11 +33,8 @@ export default function Footer() {
             </div>
 
             <div className="absolute inset-y-0 left-0 w-[62%] bg-gradient-to-r from-[#0c0c0c] via-[#0c0c0c]/90 to-transparent" />
-
             <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#0c0c0c] to-transparent" />
-
             <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0c0c0c] to-transparent" />
-
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_50%,transparent_0%,transparent_30%,rgba(12,12,12,0.12)_60%,rgba(12,12,12,0.55)_100%)]" />
           </div>
 
@@ -82,7 +79,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="grid gap-12 pb-12 pt-14 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.9fr_2fr]">
+        <div className="grid gap-12 pb-12 pt-14 sm:grid-cols-2 lg:grid-cols-[1.35fr_0.9fr_0.9fr_2fr]">
           <div>
             <Link
               href="/"
@@ -124,6 +121,24 @@ export default function Footer() {
               {
                 label: "Careers",
                 href: "/careers",
+              },
+            ]}
+          />
+
+          <FooterColumn
+            title="Documentation"
+            links={[
+              {
+                label: "Security",
+                href: "/security",
+              },
+              {
+                label: "Terms",
+                href: "/terms",
+              },
+              {
+                label: "Privacy",
+                href: "/privacy",
               },
             ]}
           />
