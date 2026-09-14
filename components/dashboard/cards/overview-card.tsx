@@ -17,6 +17,7 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import Dither from "@/components/Dither/Dither";
+import ProfileViewsChart from "@/components/dashboard/charts/profile-views-chart";
 
 type AnalyticsRange = 1 | 7 | 30 | 90;
 
@@ -426,7 +427,7 @@ export default function OverviewCard() {
             range={range}
           />
 
-          <ViewsChart
+          <ProfileViewsChart
             points={analytics.timeline}
             loading={loadingAnalytics}
             range={range}
@@ -858,166 +859,6 @@ function CountryAnalytics({
   );
 }
 
-function ViewsChart({
-  points,
-  loading,
-  range,
-}: {
-  points: AnalyticsPoint[];
-  loading: boolean;
-  range: AnalyticsRange;
-}) {
-  const normalized = makeRangePoints(points, range);
-
-  const maxValue = Math.max(
-    2,
-    ...normalized.map((point) => point.views)
-  );
-
-  const width = 700;
-  const height = 180;
-  const paddingX = 24;
-  const paddingTop = 18;
-  const paddingBottom = 32;
-
-  const chartHeight = height - paddingTop - paddingBottom;
-  const chartWidth = width - paddingX * 2;
-
-  const coordinates = normalized.map((point, index) => {
-    const x =
-      normalized.length === 1
-        ? width / 2
-        : paddingX +
-          (chartWidth * index) /
-            Math.max(normalized.length - 1, 1);
-
-    const y =
-      paddingTop +
-      chartHeight -
-      (point.views / maxValue) * chartHeight;
-
-    return {
-      ...point,
-      x,
-      y,
-    };
-  });
-
-  const linePath = coordinates
-    .map((point, index) => {
-      return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
-    })
-    .join(" ");
-
-  const labelStep =
-    range === 1
-      ? 1
-      : range === 7
-        ? 1
-        : range === 30
-          ? 5
-          : 15;
-
-  return (
-    <div className="min-h-[270px] rounded-[20px] border border-white/[0.065] bg-[#0c0c0c] p-5">
-      <p className="text-[11px] font-semibold text-white/80">
-        Profile Views in the last{" "}
-        <span className="text-[#5360ff]">
-          {range} {range === 1 ? "day" : "days"}
-        </span>
-      </p>
-
-      <div className="mt-4 h-[195px] w-full">
-        {loading ? (
-          <div className="h-full w-full animate-pulse rounded-[14px] bg-white/[0.02]" />
-        ) : (
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            className="h-full w-full overflow-visible"
-            preserveAspectRatio="none"
-          >
-            {[0, 0.5, 1].map((position) => {
-              const y = paddingTop + chartHeight * position;
-
-              return (
-                <line
-                  key={position}
-                  x1={paddingX}
-                  x2={width - paddingX}
-                  y1={y}
-                  y2={y}
-                  stroke="rgba(255,255,255,0.055)"
-                  strokeWidth="1"
-                />
-              );
-            })}
-
-            {coordinates.length > 1 && (
-              <motion.path
-                key={range}
-                d={linePath}
-                fill="none"
-                stroke="#2832F9"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                initial={{
-                  pathLength: 0,
-                  opacity: 0,
-                }}
-                animate={{
-                  pathLength: 1,
-                  opacity: 1,
-                }}
-                transition={{
-                  duration: 0.7,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              />
-            )}
-
-            {coordinates.map((point, index) => {
-              const showLabel =
-                index % labelStep === 0 ||
-                index === coordinates.length - 1;
-
-              const showPoint =
-                range <= 30 ||
-                index % 3 === 0 ||
-                index === coordinates.length - 1;
-
-              return (
-                <g key={point.date}>
-                  {showPoint && (
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={range === 1 ? 3.5 : 2.5}
-                      fill="#2832F9"
-                    />
-                  )}
-
-                  {showLabel && (
-                    <text
-                      x={point.x}
-                      y={height - 8}
-                      textAnchor="middle"
-                      fill="rgba(255,255,255,0.28)"
-                      fontSize="9"
-                    >
-                      {formatChartDate(point.date)}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function percentage(value: number, total: number) {
   if (!total) {
     return 0;
@@ -1028,53 +869,6 @@ function percentage(value: number, total: number) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
-}
-
-function formatChartDate(value: string) {
-  const date = new Date(`${value}T12:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function makeRangePoints(
-  points: AnalyticsPoint[],
-  days: AnalyticsRange
-) {
-  const mapped = new Map(
-    points.map((point) => [
-      point.date.slice(0, 10),
-      Number(point.views || 0),
-    ])
-  );
-
-  const result: AnalyticsPoint[] = [];
-
-  for (let offset = days - 1; offset >= 0; offset--) {
-    const date = new Date();
-
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() - offset);
-
-    const key = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, "0"),
-      String(date.getDate()).padStart(2, "0"),
-    ].join("-");
-
-    result.push({
-      date: key,
-      views: mapped.get(key) ?? 0,
-    });
-  }
-
-  return result;
 }
 
 function getCountryName(code: string) {
