@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
   ) {
     return NextResponse.json(
       {
-        error: "Discord OAuth environment variables are missing",
+        error:
+          "Discord OAuth environment variables are missing",
       },
       { status: 500 }
     );
@@ -127,14 +128,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const existingUser = await getUserByDiscordId(
-      userData.id
-    );
+    const existingUser =
+      await getUserByDiscordId(userData.id);
 
     const user = await upsertUser({
       discordId: userData.id,
       username: userData.username,
-      globalName: userData.global_name ?? null,
+      globalName:
+        userData.global_name ?? null,
       avatar: userData.avatar ?? null,
     });
 
@@ -144,48 +145,70 @@ export async function GET(request: NextRequest) {
       !existingUser.hasPassword;
 
     const sessionUser = {
-      id: user.discordId,
+      id: user.id,
       username: user.username,
       global_name: user.globalName,
       avatar: user.avatar,
     };
 
     const sessionToken =
-      await createSessionToken(sessionUser);
+      await createSessionToken(
+        sessionUser,
+        request
+      );
 
-    const profileCookie = createProfileCookie({
-      id: user.discordId,
-      username: user.username,
-      displayName:
-        user.globalName || user.username,
-      avatar: user.avatar,
-    });
+    const profileCookie =
+      createProfileCookie({
+        id: user.id,
+        username: user.username,
+        displayName:
+          user.globalName ||
+          user.username,
+        avatar: user.avatar,
+      });
 
-    const oauthCookie = createDiscordOAuthCookie({
-      accessToken,
-      refreshToken,
-      expiresAt:
-        Date.now() + Number(expiresIn) * 1000,
-    });
+    const oauthCookie =
+      createDiscordOAuthCookie({
+        accessToken,
+        refreshToken,
+        expiresAt:
+          Date.now() +
+          Number(expiresIn) * 1000,
+      });
 
-    const cleanBaseUrl = baseUrl.replace(
-      /\/+$/,
-      ""
-    );
+    const cleanBaseUrl =
+      baseUrl.replace(/\/+$/, "");
 
-    const response = NextResponse.redirect(
-      new URL(
-        requiresOnboarding
-          ? "/onboarding/finish-discord"
-          : "/",
-        `${cleanBaseUrl}/`
-      )
-    );
+    const response =
+      NextResponse.redirect(
+        new URL(
+          requiresOnboarding
+            ? "/onboarding/finish-discord"
+            : "/",
+          `${cleanBaseUrl}/`
+        )
+      );
+
+    const sessionCookieOptions = {
+      httpOnly: true,
+      secure:
+        process.env.NODE_ENV ===
+        "production",
+      sameSite: "lax" as const,
+      domain:
+        process.env.NODE_ENV ===
+        "production"
+          ? "carts.lol"
+          : undefined,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    };
 
     const cookieOptions = {
       httpOnly: true,
       secure:
-        process.env.NODE_ENV === "production",
+        process.env.NODE_ENV ===
+        "production",
       sameSite: "lax" as const,
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
@@ -194,7 +217,7 @@ export async function GET(request: NextRequest) {
     response.cookies.set(
       "session",
       sessionToken,
-      cookieOptions
+      sessionCookieOptions
     );
 
     response.cookies.set(
@@ -210,13 +233,15 @@ export async function GET(request: NextRequest) {
     );
 
     if (requiresOnboarding) {
-      const onboardingPayload = encrypt(
-        user.discordId
-      );
+      const onboardingPayload =
+        encrypt(user.discordId);
 
-      const onboardingCookie = Buffer.from(
-        JSON.stringify(onboardingPayload)
-      ).toString("base64url");
+      const onboardingCookie =
+        Buffer.from(
+          JSON.stringify(
+            onboardingPayload
+          )
+        ).toString("base64url");
 
       response.cookies.set(
         "discord_onboarding",

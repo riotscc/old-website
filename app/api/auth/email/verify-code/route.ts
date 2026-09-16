@@ -26,7 +26,9 @@ export async function POST(
 
         const email =
             typeof body.email === "string"
-                ? body.email.trim().toLowerCase()
+                ? body.email
+                      .trim()
+                      .toLowerCase()
                 : "";
 
         const code =
@@ -79,7 +81,9 @@ export async function POST(
         }
 
         const otp =
-            await getLatestEmailOtp(email);
+            await getLatestEmailOtp(
+                email
+            );
 
         if (!otp) {
             return NextResponse.json(
@@ -221,6 +225,22 @@ export async function POST(
                 },
             });
 
+        const sessionCookieOptions = {
+            httpOnly: true,
+            secure:
+                process.env.NODE_ENV ===
+                "production",
+            sameSite: "lax" as const,
+            domain:
+                process.env.NODE_ENV ===
+                "production"
+                    ? "carts.lol"
+                    : undefined,
+            path: "/",
+            maxAge:
+                60 * 60 * 24 * 30,
+        };
+
         const cookieOptions = {
             httpOnly: true,
             secure:
@@ -235,7 +255,7 @@ export async function POST(
         response.cookies.set(
             "session",
             sessionToken,
-            cookieOptions
+            sessionCookieOptions
         );
 
         response.cookies.set(
@@ -252,7 +272,8 @@ export async function POST(
                 secure:
                     process.env.NODE_ENV ===
                     "production",
-                sameSite: "lax",
+                sameSite:
+                    "lax" as const,
                 path: "/",
                 maxAge: 0,
             }

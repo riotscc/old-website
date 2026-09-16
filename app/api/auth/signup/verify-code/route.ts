@@ -268,15 +268,29 @@ export async function POST(
         user: {
           id: user.id,
           discordId: user.discordId,
-          username:
-            user.username,
+          username: user.username,
           displayName:
             user.globalName ||
             user.username,
-          avatar:
-            user.avatar,
+          avatar: user.avatar,
         },
       });
+
+    const sessionCookieOptions = {
+      httpOnly: true,
+      secure:
+        process.env.NODE_ENV ===
+        "production",
+      sameSite: "lax" as const,
+      domain:
+        process.env.NODE_ENV ===
+        "production"
+          ? "carts.lol"
+          : undefined,
+      path: "/",
+      maxAge:
+        60 * 60 * 24 * 30,
+    };
 
     const cookieOptions = {
       httpOnly: true,
@@ -292,7 +306,7 @@ export async function POST(
     response.cookies.set(
       "session",
       sessionToken,
-      cookieOptions
+      sessionCookieOptions
     );
 
     response.cookies.set(
