@@ -1,21 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 import {
   getOrCreateUserDataMain,
   updateBadgeSettings,
 } from "@/database/queries/userDataMain";
+import { getUserById } from "@/database/queries/users";
+import { verifySessionToken } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 type AuthUser = {
   id: string;
-  username?: string;
-  name?: string;
-  displayName?: string;
+  username: string;
   globalName?: string | null;
-};
-
-type AuthResponse = {
-  user?: AuthUser;
+  displayName?: string | null;
+  name?: string | null;
 };
 
 type AssignedBadge = {
@@ -53,14 +54,38 @@ const allowedBadgeIds = new Set([
   "server-booster",
 ]);
 
-function normalizeBadgeName(name: string) {
+function getAppUrl() {
+  const configured =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL;
+
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  if (
+    process.env.NODE_ENV ===
+    "production"
+  ) {
+    return "https://carts.lol";
+  }
+
+  return "http://localhost:3000";
+}
+
+function normalizeBadgeName(
+  name: string
+) {
   const normalized = name
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  if (normalized === "carts-lol-official") {
+  if (
+    normalized ===
+    "carts-lol-official"
+  ) {
     return "official";
   }
 
@@ -70,75 +95,113 @@ function normalizeBadgeName(name: string) {
 async function getAuthenticatedUser(
   request: NextRequest
 ): Promise<AuthUser | null> {
-  const cookie = request.headers.get("cookie") || "";
+  const sessionToken =
+    request.cookies.get("session")?.value;
 
-  const response = await fetch(
-    new URL("/api/auth/me", request.url),
-    {
-      method: "GET",
-      headers: {
-        cookie,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
+  if (!sessionToken) {
     return null;
   }
 
-  const data = (await response.json()) as AuthResponse;
+  const sessionUser =
+    await verifySessionToken(
+      sessionToken
+    );
 
-  if (!data.user?.id) {
+  if (!sessionUser?.id) {
     return null;
   }
 
-  return data.user;
+  const user =
+    await getUserById(
+      sessionUser.id
+    );
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    globalName:
+      user.globalName ?? null,
+    displayName:
+      user.globalName ?? null,
+    name:
+      user.globalName ?? null,
+  };
 }
 
 async function getOwnedBadgeIds(
   request: NextRequest
 ): Promise<Set<string>> {
-  const cookie = request.headers.get("cookie") || "";
+  const sessionToken =
+    request.cookies.get("session")?.value;
 
-  const response = await fetch(
-    new URL("/api/badges", request.url),
-    {
-      method: "GET",
-      headers: {
-        cookie,
-      },
-      cache: "no-store",
+  if (!sessionToken) {
+    return new Set();
+  }
+
+  try {
+    const response = await fetch(
+      `${getAppUrl()}/api/badges`,
+      {
+        method: "GET",
+        headers: {
+          cookie: `session=${encodeURIComponent(
+            sessionToken
+          )}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return new Set();
     }
-  );
 
-  if (!response.ok) {
+    const data =
+      (await response.json()) as BadgesResponse;
+
+    if (
+      !Array.isArray(
+        data.badges
+      )
+    ) {
+      return new Set();
+    }
+
+    return new Set(
+      data.badges
+        .map((badge) => {
+          if (
+            typeof badge.badgeId ===
+              "string" &&
+            badge.badgeId.trim()
+          ) {
+            return badge.badgeId
+              .trim()
+              .toLowerCase();
+          }
+
+          return normalizeBadgeName(
+            badge.badgeName
+          );
+        })
+        .filter((badge) =>
+          allowedBadgeIds.has(
+            badge
+          )
+        )
+    );
+  } catch {
     return new Set();
   }
-
-  const data = (await response.json()) as BadgesResponse;
-
-  if (!Array.isArray(data.badges)) {
-    return new Set();
-  }
-
-  return new Set(
-    data.badges
-      .map((badge) => {
-        if (
-          typeof badge.badgeId === "string" &&
-          badge.badgeId.trim()
-        ) {
-          return badge.badgeId.trim().toLowerCase();
-        }
-
-        return normalizeBadgeName(badge.badgeName);
-      })
-      .filter((badge) => allowedBadgeIds.has(badge))
-  );
 }
 
-function getUsername(user: AuthUser) {
+function getUsername(
+  user: AuthUser
+) {
   return (
     user.username ||
     user.name ||
@@ -147,7 +210,9 @@ function getUsername(user: AuthUser) {
   );
 }
 
-function getGlobalName(user: AuthUser) {
+function getGlobalName(
+  user: AuthUser
+) {
   return (
     user.globalName ??
     user.displayName ??
@@ -165,41 +230,69 @@ function serializeSettings(data: {
   badgeGlowEnabled: boolean;
 }) {
   return {
-    equippedBadges: data.equippedBadges,
-    monochromeBadges: data.monochromeBadges,
-    badgeColor: data.badgeColor,
-    badgeContainerEnabled: data.badgeContainerEnabled,
-    badgeLoopEnabled: data.badgeLoopEnabled,
-    badgeGlowEnabled: data.badgeGlowEnabled,
+    equippedBadges:
+      data.equippedBadges,
+    monochromeBadges:
+      data.monochromeBadges,
+    badgeColor:
+      data.badgeColor,
+    badgeContainerEnabled:
+      data.badgeContainerEnabled,
+    badgeLoopEnabled:
+      data.badgeLoopEnabled,
+    badgeGlowEnabled:
+      data.badgeGlowEnabled,
   };
 }
 
 function isBadgeSettingsInput(
   value: unknown
 ): value is BadgeSettingsInput {
-  if (!value || typeof value !== "object") {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
     return false;
   }
 
-  const settings = value as Record<string, unknown>;
+  const settings =
+    value as Record<
+      string,
+      unknown
+    >;
 
   return (
-    Array.isArray(settings.equippedBadges) &&
-    settings.equippedBadges.every(
-      (badge) => typeof badge === "string"
+    Array.isArray(
+      settings.equippedBadges
     ) &&
-    typeof settings.monochromeBadges === "boolean" &&
-    typeof settings.badgeColor === "string" &&
-    /^#[0-9a-fA-F]{6}$/.test(settings.badgeColor) &&
-    typeof settings.badgeContainerEnabled === "boolean" &&
-    typeof settings.badgeLoopEnabled === "boolean" &&
-    typeof settings.badgeGlowEnabled === "boolean"
+    settings.equippedBadges.every(
+      (badge) =>
+        typeof badge === "string"
+    ) &&
+    typeof settings.monochromeBadges ===
+      "boolean" &&
+    typeof settings.badgeColor ===
+      "string" &&
+    /^#[0-9a-fA-F]{6}$/.test(
+      settings.badgeColor
+    ) &&
+    typeof settings.badgeContainerEnabled ===
+      "boolean" &&
+    typeof settings.badgeLoopEnabled ===
+      "boolean" &&
+    typeof settings.badgeGlowEnabled ===
+      "boolean"
   );
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest
+) {
   try {
-    const user = await getAuthenticatedUser(request);
+    const user =
+      await getAuthenticatedUser(
+        request
+      );
 
     if (!user) {
       return NextResponse.json(
@@ -213,33 +306,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await getOrCreateUserDataMain(
-      user.id,
-      getUsername(user),
-      getGlobalName(user)
-    );
+    const data =
+      await getOrCreateUserDataMain(
+        user.id,
+        getUsername(user),
+        getGlobalName(user)
+      );
 
     return NextResponse.json({
       success: true,
       user: {
         id: user.id,
-        username: getUsername(user),
+        username:
+          getUsername(user),
         displayName:
           user.displayName ||
           user.globalName ||
           user.name ||
           getUsername(user),
-        globalName: getGlobalName(user),
+        globalName:
+          getGlobalName(user),
       },
-      settings: serializeSettings(data),
+      settings:
+        serializeSettings(data),
     });
   } catch (error) {
-    console.error("BADGE_SETTINGS_GET_ERROR:", error);
+    console.error(
+      "BADGE_SETTINGS_GET_ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to load badge settings",
+        error:
+          "Failed to load badge settings",
       },
       {
         status: 500,
@@ -248,9 +349,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(
+  request: NextRequest
+) {
   try {
-    const user = await getAuthenticatedUser(request);
+    const user =
+      await getAuthenticatedUser(
+        request
+      );
 
     if (!user) {
       return NextResponse.json(
@@ -264,14 +370,24 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const body = await request.json().catch(() => null);
-    const settings = body?.settings;
+    const body =
+      await request
+        .json()
+        .catch(() => null);
 
-    if (!isBadgeSettingsInput(settings)) {
+    const settings =
+      body?.settings;
+
+    if (
+      !isBadgeSettingsInput(
+        settings
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid badge settings",
+          error:
+            "Invalid badge settings",
         },
         {
           status: 400,
@@ -285,33 +401,50 @@ export async function PATCH(request: NextRequest) {
       getGlobalName(user)
     );
 
-    const ownedBadges = await getOwnedBadgeIds(request);
+    const ownedBadges =
+      await getOwnedBadgeIds(
+        request
+      );
 
-    const equippedBadges = Array.from(
-      new Set(
-        settings.equippedBadges.filter(
-          (badge) =>
-            allowedBadgeIds.has(badge) &&
-            ownedBadges.has(badge)
+    const equippedBadges =
+      Array.from(
+        new Set(
+          settings.equippedBadges.filter(
+            (badge) =>
+              allowedBadgeIds.has(
+                badge
+              ) &&
+              ownedBadges.has(
+                badge
+              )
+          )
         )
-      )
-    );
+      );
 
-    const updated = await updateBadgeSettings(user.id, {
-      equippedBadges,
-      monochromeBadges: settings.monochromeBadges,
-      badgeColor: settings.badgeColor.toLowerCase(),
-      badgeContainerEnabled:
-        settings.badgeContainerEnabled,
-      badgeLoopEnabled: settings.badgeLoopEnabled,
-      badgeGlowEnabled: settings.badgeGlowEnabled,
-    });
+    const updated =
+      await updateBadgeSettings(
+        user.id,
+        {
+          equippedBadges,
+          monochromeBadges:
+            settings.monochromeBadges,
+          badgeColor:
+            settings.badgeColor.toLowerCase(),
+          badgeContainerEnabled:
+            settings.badgeContainerEnabled,
+          badgeLoopEnabled:
+            settings.badgeLoopEnabled,
+          badgeGlowEnabled:
+            settings.badgeGlowEnabled,
+        }
+      );
 
     if (!updated) {
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to update badge settings",
+          error:
+            "Failed to update badge settings",
         },
         {
           status: 500,
@@ -321,15 +454,20 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      settings: serializeSettings(updated),
+      settings:
+        serializeSettings(updated),
     });
   } catch (error) {
-    console.error("BADGE_SETTINGS_PATCH_ERROR:", error);
+    console.error(
+      "BADGE_SETTINGS_PATCH_ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to update badge settings",
+        error:
+          "Failed to update badge settings",
       },
       {
         status: 500,
