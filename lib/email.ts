@@ -15,6 +15,7 @@ export async function sendVerificationEmail({
         from: "carts.lol <noreply@carts.lol>",
         to: [email],
         subject: `${code} is your carts.lol sign-in code`,
+        text: `${code} is your carts.lol sign-in code. It expires in 10 minutes.`,
         html: `
             <!DOCTYPE html>
             <html lang="en">
@@ -25,23 +26,43 @@ export async function sendVerificationEmail({
                         content="width=device-width, initial-scale=1.0"
                     />
                     <meta name="color-scheme" content="light" />
+                    <meta name="supported-color-schemes" content="light" />
+
                     <title>Your carts.lol sign-in code</title>
+
+                    <style>
+                        @media only screen and (max-width: 600px) {
+                            .wrapper {
+                                padding: 24px 16px !important;
+                            }
+
+                            .content {
+                                padding: 28px !important;
+                            }
+
+                            .code {
+                                font-size: 30px !important;
+                                letter-spacing: 7px !important;
+                            }
+                        }
+                    </style>
                 </head>
 
                 <body
                     style="
                         margin: 0;
                         padding: 0;
-                        background-color: #f5f5f7;
+                        background-color: #f7f7f8;
                         font-family:
+                            Inter,
                             -apple-system,
                             BlinkMacSystemFont,
                             'Segoe UI',
-                            Roboto,
                             Helvetica,
                             Arial,
                             sans-serif;
                         color: #171717;
+                        -webkit-font-smoothing: antialiased;
                     "
                 >
                     <div
@@ -52,7 +73,7 @@ export async function sendVerificationEmail({
                             opacity: 0;
                         "
                     >
-                        ${code} is your carts.lol sign-in code. It expires in 10 minutes.
+                        ${code} is your carts.lol sign-in code.
                     </div>
 
                     <table
@@ -60,16 +81,18 @@ export async function sendVerificationEmail({
                         cellpadding="0"
                         cellspacing="0"
                         border="0"
+                        role="presentation"
                         style="
                             width: 100%;
-                            background-color: #f5f5f7;
+                            background-color: #f7f7f8;
                         "
                     >
                         <tr>
                             <td
                                 align="center"
+                                class="wrapper"
                                 style="
-                                    padding: 28px 16px 18px;
+                                    padding: 48px 20px;
                                 "
                             >
                                 <table
@@ -77,175 +100,183 @@ export async function sendVerificationEmail({
                                     cellpadding="0"
                                     cellspacing="0"
                                     border="0"
+                                    role="presentation"
                                     style="
                                         width: 100%;
-                                        max-width: 560px;
-                                        background-color: #ffffff;
-                                        border: 1px solid #dedee3;
-                                        border-top: 6px solid #2832f9;
-                                        border-radius: 3px;
+                                        max-width: 520px;
                                     "
                                 >
                                     <tr>
                                         <td
                                             style="
-                                                padding: 30px 40px 32px;
+                                                padding: 0 4px 18px;
+                                                font-size: 19px;
+                                                line-height: 1;
+                                                font-weight: 700;
+                                                letter-spacing: -0.6px;
+                                                color: #171717;
                                             "
                                         >
-                                            <div
-                                                style="
-                                                    margin: 0 0 24px;
-                                                    font-size: 27px;
-                                                    line-height: 1;
-                                                    font-weight: 800;
-                                                    letter-spacing: -1.2px;
-                                                    color: #2832f9;
-                                                "
-                                            >
-                                                carts.lol
-                                            </div>
-
-                                            <h1
-                                                style="
-                                                    margin: 0 0 14px;
-                                                    font-size: 24px;
-                                                    line-height: 1.3;
-                                                    font-weight: 700;
-                                                    letter-spacing: -0.65px;
-                                                    color: #171717;
-                                                "
-                                            >
-                                                Your
-                                                <span
-                                                    style="
-                                                        background-color: #e7e7eb;
-                                                        padding: 1px 4px;
-                                                        border-radius: 2px;
-                                                    "
-                                                >
-                                                    carts.lol
-                                                </span>
-                                                sign-in code
-                                            </h1>
-
-                                            <p
-                                                style="
-                                                    margin: 0 0 26px;
-                                                    font-size: 14px;
-                                                    line-height: 1.5;
-                                                    color: #62626a;
-                                                "
-                                            >
-                                                Enter this 6-digit code to finish
-                                                signing in. It expires in
-                                                <strong style="color: #171717;">
-                                                    10 minutes.
-                                                </strong>
-                                            </p>
-
-                                            <div
-                                                style="
-                                                    margin: 0 0 24px;
-                                                    font-size: 27px;
-                                                    line-height: 1.3;
-                                                    font-weight: 700;
-                                                    letter-spacing: 8px;
-                                                    color: #171717;
-                                                "
-                                            >
-                                                ${code}
-                                            </div>
-
-                                            <p
-                                                style="
-                                                    margin: 0;
-                                                    font-size: 12px;
-                                                    line-height: 1.5;
-                                                    color: #85858d;
-                                                "
-                                            >
-                                                If you didn't try to sign in, you
-                                                can ignore this email.
-                                            </p>
+                                            carts<span style="color: #2832f9;">.lol</span>
                                         </td>
                                     </tr>
-                                </table>
 
-                                <table
-                                    width="100%"
-                                    cellpadding="0"
-                                    cellspacing="0"
-                                    border="0"
-                                    style="
-                                        width: 100%;
-                                        max-width: 560px;
-                                    "
-                                >
                                     <tr>
                                         <td
-                                            align="center"
                                             style="
-                                                padding: 20px 16px 0;
-                                                font-size: 11px;
-                                                line-height: 1.8;
-                                                color: #77777f;
+                                                background-color: #ffffff;
+                                                border: 1px solid #e5e5e7;
+                                                border-radius: 14px;
                                             "
                                         >
-                                            <span
-                                                style="
-                                                    font-weight: 700;
-                                                    color: #5f5f67;
-                                                "
+                                            <table
+                                                width="100%"
+                                                cellpadding="0"
+                                                cellspacing="0"
+                                                border="0"
+                                                role="presentation"
                                             >
-                                                carts.lol
-                                            </span>
+                                                <tr>
+                                                    <td
+                                                        class="content"
+                                                        style="
+                                                            padding: 38px 40px 36px;
+                                                        "
+                                                    >
+                                                        <div
+                                                            style="
+                                                                margin-bottom: 18px;
+                                                                font-size: 12px;
+                                                                line-height: 1;
+                                                                font-weight: 600;
+                                                                color: #77777f;
+                                                            "
+                                                        >
+                                                            Sign in to carts.lol
+                                                        </div>
 
-                                            <span
-                                                style="
-                                                    margin: 0 8px;
-                                                    color: #b1b1b6;
-                                                "
-                                            >
-                                                ·
-                                            </span>
+                                                        <h1
+                                                            style="
+                                                                margin: 0;
+                                                                padding: 0;
+                                                                font-size: 25px;
+                                                                line-height: 1.25;
+                                                                font-weight: 650;
+                                                                letter-spacing: -0.8px;
+                                                                color: #171717;
+                                                            "
+                                                        >
+                                                            Here's your sign-in code.
+                                                        </h1>
 
-                                            <a
-                                                href="https://carts.lol"
-                                                style="
-                                                    color: #77777f;
-                                                    text-decoration: none;
-                                                "
-                                            >
-                                                Open Dashboard
-                                            </a>
+                                                        <p
+                                                            style="
+                                                                margin: 12px 0 0;
+                                                                padding: 0;
+                                                                font-size: 14px;
+                                                                line-height: 1.6;
+                                                                color: #707078;
+                                                            "
+                                                        >
+                                                            Enter this code to continue signing in.
+                                                            It expires in 10 minutes.
+                                                        </p>
 
-                                            <span
-                                                style="
-                                                    margin: 0 8px;
-                                                    color: #b1b1b6;
-                                                "
-                                            >
-                                                ·
-                                            </span>
+                                                        <div
+                                                            style="
+                                                                margin: 30px 0;
+                                                                height: 1px;
+                                                                background-color: #eeeeef;
+                                                            "
+                                                        ></div>
 
-                                            <a
-                                                href="https://carts.lol/docs"
-                                                style="
-                                                    color: #77777f;
-                                                    text-decoration: none;
-                                                "
-                                            >
-                                                Docs
-                                            </a>
+                                                        <div
+                                                            class="code"
+                                                            style="
+                                                                font-family:
+                                                                    'SFMono-Regular',
+                                                                    Consolas,
+                                                                    'Liberation Mono',
+                                                                    Menlo,
+                                                                    monospace;
+                                                                font-size: 34px;
+                                                                line-height: 1;
+                                                                font-weight: 600;
+                                                                letter-spacing: 9px;
+                                                                color: #171717;
+                                                            "
+                                                        >
+                                                            ${code}
+                                                        </div>
 
-                                            <div
-                                                style="
-                                                    margin-top: 6px;
-                                                    color: #9a9aa1;
-                                                "
+                                                        <div
+                                                            style="
+                                                                margin: 30px 0;
+                                                                height: 1px;
+                                                                background-color: #eeeeef;
+                                                            "
+                                                        ></div>
+
+                                                        <p
+                                                            style="
+                                                                margin: 0;
+                                                                font-size: 12px;
+                                                                line-height: 1.6;
+                                                                color: #94949b;
+                                                            "
+                                                        >
+                                                            If you didn't request this code, you can
+                                                            safely ignore this email.
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td
+                                            style="
+                                                padding: 18px 4px 0;
+                                            "
+                                        >
+                                            <table
+                                                width="100%"
+                                                cellpadding="0"
+                                                cellspacing="0"
+                                                border="0"
+                                                role="presentation"
                                             >
-                                                © ${new Date().getFullYear()} carts.lol
-                                            </div>
+                                                <tr>
+                                                    <td
+                                                        style="
+                                                            font-size: 11px;
+                                                            line-height: 1.6;
+                                                            color: #a0a0a6;
+                                                        "
+                                                    >
+                                                        © ${new Date().getFullYear()} carts.lol
+                                                    </td>
+
+                                                    <td
+                                                        align="right"
+                                                        style="
+                                                            font-size: 11px;
+                                                            line-height: 1.6;
+                                                        "
+                                                    >
+                                                        <a
+                                                            href="https://carts.lol"
+                                                            style="
+                                                                color: #8a8a91;
+                                                                text-decoration: none;
+                                                            "
+                                                        >
+                                                            carts.lol
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            </table>
                                         </td>
                                     </tr>
                                 </table>
@@ -259,7 +290,6 @@ export async function sendVerificationEmail({
 
     if (error) {
         console.error("RESEND_EMAIL_ERROR:", error);
-
         throw new Error("Failed to send verification email.");
     }
 

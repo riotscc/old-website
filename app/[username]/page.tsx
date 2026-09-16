@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import connectPostgres from "@/lib/postgres";
 import ProfileViewTracker from "./ProfileViewTracker";
 
@@ -51,12 +51,39 @@ async function getUser(username: string) {
     };
 }
 
+async function getAliasTargetUsername(alias: string) {
+    const result = await pool.query(
+        `
+        SELECT
+            u.username
+        FROM user_aliases ua
+        INNER JOIN users u
+            ON u.id = ua.user_id
+        WHERE LOWER(ua.alias) = LOWER($1)
+        LIMIT 1
+        `,
+        [alias]
+    );
+
+    if (!result.rowCount) {
+        return null;
+    }
+
+    return String(result.rows[0].username);
+}
+
 export default async function ProfilePage({ params }: PageProps) {
     const { username } = await params;
 
     const user = await getUser(username);
 
     if (!user) {
+        const aliasTarget = await getAliasTargetUsername(username);
+
+        if (aliasTarget) {
+            redirect(`/${encodeURIComponent(aliasTarget)}`);
+        }
+
         notFound();
     }
 

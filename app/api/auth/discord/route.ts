@@ -1,31 +1,62 @@
-import { NextResponse } from "next/server";
+import crypto from "node:crypto"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-export async function GET() {
-  const clientId = process.env.CLIENT_ID;
-  const baseUrl = process.env.BASE_URL;
+export async function GET(
+  request: NextRequest
+) {
+  const clientId =
+    process.env.CLIENT_ID
 
-  if (!clientId || !baseUrl) {
+  if (!clientId) {
     return NextResponse.json(
       {
-        error: "Discord OAuth is not configured",
+        error:
+          "CLIENT_ID is not configured",
       },
       {
         status: 500,
       }
-    );
+    )
   }
 
-  const cleanBaseUrl = baseUrl.replace(/\/+$/, "");
+  const redirectUri =
+    process.env.REDIRECT_URI ||
+    `${request.nextUrl.origin}/api/auth/discord/callback`
 
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: "code",
-    redirect_uri: `${cleanBaseUrl}/api/auth/callback`,
-    scope: "identify email guilds",
-    prompt: "consent",
-  });
+  const state =
+    crypto.randomBytes(32).toString("hex")
 
-  return NextResponse.redirect(
-    `https://discord.com/oauth2/authorize?${params.toString()}`
-  );
+  const params =
+    new URLSearchParams({
+      client_id: clientId,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: "identify",
+      state,
+      prompt: "consent",
+    })
+
+  const response =
+    NextResponse.redirect(
+      `https://discord.com/oauth2/authorize?${params.toString()}`
+    )
+
+  response.cookies.set(
+    "discord_oauth_state",
+    state,
+    {
+      httpOnly: true,
+      secure:
+        process.env.NODE_ENV ===
+        "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 10,
+    }
+  )
+
+  return response
 }

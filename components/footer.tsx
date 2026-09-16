@@ -161,18 +161,6 @@ export default function Footer() {
             © {new Date().getFullYear()} carts.lol. All rights reserved.
           </p>
 
-          <Link
-            href="/discord"
-            aria-label="Discord"
-            className="flex h-8 w-8 items-center justify-center text-white/40 transition-colors duration-200 hover:text-white"
-          >
-            <HugeiconsIcon
-              icon={DiscordIcon}
-              size={19}
-              color="currentColor"
-              strokeWidth={1.5}
-            />
-          </Link>
         </div>
       </div>
     </footer>

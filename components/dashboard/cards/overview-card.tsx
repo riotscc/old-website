@@ -18,16 +18,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import Dither from "@/components/Dither/Dither";
 import ProfileViewsChart from "@/components/dashboard/charts/profile-views-chart";
+import { useAuth } from "@/components/providers/auth-provider";
 
 type AnalyticsRange = 1 | 7 | 30 | 90;
 
-type CurrentUser = {
-  id: string;
-  username: string;
-  displayName?: string;
-  globalName?: string;
-  plan?: string;
-};
 
 type AnalyticsPoint = {
   date: string;
@@ -76,51 +70,12 @@ const emptyAnalytics: AnalyticsData = {
 };
 
 export default function OverviewCard() {
-  const [user, setUser] = React.useState<CurrentUser | null>(null);
+  const { user, loading: loadingUser } = useAuth();
   const [analytics, setAnalytics] =
     React.useState<AnalyticsData>(emptyAnalytics);
   const [range, setRange] = React.useState<AnalyticsRange>(7);
-  const [loadingUser, setLoadingUser] = React.useState(true);
   const [loadingAnalytics, setLoadingAnalytics] = React.useState(true);
 
-  React.useEffect(() => {
-    let mounted = true;
-
-    async function loadUser() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const data = await response.json();
-
-        if (!mounted) {
-          return;
-        }
-
-        if (data?.user) {
-          setUser(data.user);
-        }
-      } catch {
-      } finally {
-        if (mounted) {
-          setLoadingUser(false);
-        }
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   React.useEffect(() => {
     if (!user?.username) {
@@ -202,7 +157,6 @@ export default function OverviewCard() {
 
   const displayName =
     user?.displayName ||
-    user?.globalName ||
     user?.username ||
     "User";
 
@@ -223,19 +177,19 @@ export default function OverviewCard() {
         duration: 0.35,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="w-full"
+      className="w-full pt-5 text-[#111111] dark:text-white"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] font-medium">
-          <span className="text-white/30">Dashboard</span>
-          <span className="text-white/20">›</span>
-          <span className="text-white/80">Account</span>
+          <span className="text-black/35 dark:text-white/30">Dashboard</span>
+          <span className="text-black/25 dark:text-white/20">›</span>
+          <span className="text-black/80 dark:text-white/80">Account</span>
         </div>
 
         <Link
           href={user?.username ? `/${user.username}` : "/"}
           target="_blank"
-          className="flex h-9 items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.025] px-4 text-[11px] font-semibold text-white/55 transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-white"
+          className="flex h-9 items-center gap-2 rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-[11px] font-semibold text-black/55 transition-all duration-200 hover:border-black/[0.14] hover:bg-black/[0.05] hover:text-black dark:border-white/[0.075] dark:bg-white/[0.025] dark:text-white/55 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05] dark:hover:text-white"
         >
           <HugeiconsIcon
             icon={Globe02Icon}
@@ -248,97 +202,103 @@ export default function OverviewCard() {
       </div>
 
       <div className="mt-6">
-        <h1 className="text-[22px] font-semibold tracking-[-0.7px] text-white">
+        <h1 className="text-[22px] font-semibold tracking-[-0.7px] text-[#111111] dark:text-white">
           Overview
         </h1>
 
-        <p className="mt-1 text-[12px] text-white/35">
+        <p className="mt-1 text-[12px] text-black/45 dark:text-white/35">
           Your account identity and profile traffic.
         </p>
       </div>
 
-      {isFree && !loadingUser && (
-        <motion.div
-          initial={{
-            opacity: 0,
-            y: 8,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            delay: 0.05,
-            duration: 0.35,
-          }}
-          className="relative mt-8 min-h-[92px] overflow-hidden rounded-[20px] border border-white/[0.075] bg-[#0b0b0b]"
-        >
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-[68%] overflow-hidden">
-            <Dither
-              waveColor={[
-                0.01568627450980392,
-                0.0392156862745098,
-                0.5215686274509804,
-              ]}
-              disableAnimation={false}
-              enableMouseInteraction={false}
-              mouseRadius={0.3}
-              colorNum={4}
-              waveAmplitude={0.27}
-              waveFrequency={2.8}
-              waveSpeed={0.06}
+{isFree && !loadingUser && (
+  <motion.div
+    initial={{
+      opacity: 0,
+      y: 12,
+      scale: 0.98,
+    }}
+    animate={{
+      opacity: 1,
+      y: 0,
+      scale: 1,
+    }}
+    transition={{
+      delay: 0.15,
+      duration: 0.35,
+      ease: [0.22, 1, 0.36, 1],
+    }}
+    className="fixed bottom-5 right-5 z-50 w-[calc(100%-40px)] max-w-[340px]"
+  >
+    <div className="relative overflow-hidden rounded-[18px] border border-black/[0.08] bg-white/95 shadow-2xl shadow-black/10 backdrop-blur-xl dark:border-white/[0.09] dark:bg-[#0b0b0b]/95 dark:shadow-black/40">
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-[70%] overflow-hidden opacity-70">
+        <Dither
+          waveColor={[
+            0.01568627450980392,
+            0.0392156862745098,
+            0.5215686274509804,
+          ]}
+          disableAnimation={false}
+          enableMouseInteraction={false}
+          mouseRadius={0.3}
+          colorNum={4}
+          waveAmplitude={0.25}
+          waveFrequency={3}
+          waveSpeed={0.05}
+        />
+
+        <div className="absolute inset-y-0 left-0 w-[65%] bg-gradient-to-r from-white via-white/95 to-transparent dark:from-[#0b0b0b] dark:via-[#0b0b0b]/95" />
+      </div>
+
+      <div className="relative z-10 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-[#5360ff]/20 bg-[#5360ff]/10">
+            <HugeiconsIcon
+              icon={Diamond02Icon}
+              size={16}
+              color="currentColor"
+              strokeWidth={1.8}
+              className="text-[#6873ff]"
             />
-
-            <div className="absolute inset-y-0 left-0 w-[48%] bg-gradient-to-r from-[#0b0b0b] via-[#0b0b0b]/95 to-transparent" />
           </div>
 
-          <div className="relative z-10 flex min-h-[92px] flex-col justify-between gap-5 px-5 py-5 sm:flex-row sm:items-center">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <HugeiconsIcon
-                  icon={Diamond02Icon}
-                  size={16}
-                  color="currentColor"
-                  strokeWidth={1.8}
-                  className="text-[#5360ff]"
-                />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold tracking-[-0.2px] text-[#111111] dark:text-white">
+              Upgrade to Premium
+            </p>
 
-                <h2 className="text-[15px] font-semibold tracking-[-0.3px] text-white">
-                  Purchase Premium
-                </h2>
-              </div>
-
-              <p className="mt-2 text-[11px] text-white/40">
-                Unlock premium customization and more ways to make your
-                profile yours.
-              </p>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <Link
-                href="/store"
-                className="flex h-9 items-center justify-center rounded-full border border-white/[0.12] bg-black/15 px-4 text-[11px] font-semibold text-white/75 backdrop-blur-sm transition-all hover:bg-white/[0.06] hover:text-white"
-              >
-                Learn more
-              </Link>
-
-              <Link
-                href="/store"
-                className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.14] bg-white/[0.08] px-4 text-[11px] font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/[0.13]"
-              >
-                Upgrade
-
-                <HugeiconsIcon
-                  icon={ArrowRight01Icon}
-                  size={13}
-                  color="currentColor"
-                  strokeWidth={1.8}
-                />
-              </Link>
-            </div>
+            <p className="mt-1 max-w-[220px] text-[10px] leading-[16px] text-black/45 dark:text-white/35">
+              Unlock more customization and premium features for your profile.
+            </p>
           </div>
-        </motion.div>
-      )}
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <Link
+            href="/store"
+            className="flex h-9 flex-1 items-center justify-center rounded-[10px] border border-black/[0.08] bg-black/[0.03] text-[10px] font-semibold text-black/60 transition-all duration-200 hover:bg-black/[0.06] hover:text-black/85 dark:border-white/[0.07] dark:bg-white/[0.035] dark:text-white/55 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
+          >
+            View plans
+          </Link>
+
+          <Link
+            href="/store"
+            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-[#2832F9] text-[10px] font-semibold text-white transition-all duration-200 hover:bg-[#3540ff]"
+          >
+            Get Premium
+
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              size={12}
+              color="currentColor"
+              strokeWidth={1.8}
+            />
+          </Link>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+)}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -397,7 +357,11 @@ export default function OverviewCard() {
         <IdentityCard
           icon={HashtagIcon}
           label="UID"
-          value={user?.id || "—"}
+          value={
+            user?.numberId != null
+              ? String(user.numberId)
+              : "—"
+          }
           loading={loadingUser}
         />
       </div>
@@ -405,11 +369,11 @@ export default function OverviewCard() {
       <div className="mt-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-[16px] font-semibold tracking-[-0.4px] text-white">
+            <h2 className="text-[16px] font-semibold tracking-[-0.4px] text-[#111111] dark:text-white">
               Account analytics
             </h2>
 
-            <p className="mt-1 text-[10px] text-white/30">
+            <p className="mt-1 text-[10px] text-black/40 dark:text-white/30">
               Traffic, devices, and visitor locations.
             </p>
           </div>
@@ -454,7 +418,7 @@ function AnalyticsRangePicker({
   onChange: (range: AnalyticsRange) => void;
 }) {
   return (
-    <div className="flex w-fit items-center rounded-[11px] border border-white/[0.07] bg-[#0c0c0c] p-1">
+    <div className="flex w-fit items-center rounded-[11px] border border-black/[0.08] bg-white p-1 dark:border-white/[0.07] dark:bg-[#0c0c0c]">
       {ranges.map((value) => {
         const active = range === value;
 
@@ -465,8 +429,8 @@ function AnalyticsRangePicker({
             onClick={() => onChange(value)}
             className={`relative flex h-7 min-w-[42px] items-center justify-center rounded-[8px] px-2 text-[10px] font-semibold transition-colors duration-150 ${
               active
-                ? "text-white"
-                : "text-white/30 hover:text-white/65"
+                ? "text-black dark:text-white"
+                : "text-black/35 hover:text-black/70 dark:text-white/30 dark:hover:text-white/65"
             }`}
           >
             {active && (
@@ -477,7 +441,7 @@ function AnalyticsRangePicker({
                   stiffness: 430,
                   damping: 34,
                 }}
-                className="absolute inset-0 rounded-[8px] border border-white/[0.07] bg-white/[0.065]"
+                className="absolute inset-0 rounded-[8px] border border-black/[0.08] bg-black/[0.055] dark:border-white/[0.07] dark:bg-white/[0.065]"
               />
             )}
 
@@ -507,28 +471,28 @@ function MetricCard({
   raw?: boolean;
 }) {
   return (
-    <div className="min-h-[104px] rounded-[18px] border border-white/[0.065] bg-[#0c0c0c] px-5 py-4">
-      <div className="flex items-center gap-2 text-[10px] font-medium text-white/30">
+    <div className="min-h-[104px] rounded-[18px] border border-black/[0.08] bg-white px-5 py-4 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
+      <div className="flex items-center gap-2 text-[10px] font-medium text-black/40 dark:text-white/30">
         <HugeiconsIcon
           icon={icon}
           size={13}
           color="currentColor"
           strokeWidth={1.8}
-          className="text-white/45"
+          className="text-black/45 dark:text-white/45"
         />
 
         {label}
       </div>
 
       {loading ? (
-        <div className="mt-4 h-5 w-14 animate-pulse rounded bg-white/[0.06]" />
+        <div className="mt-4 h-5 w-14 animate-pulse rounded bg-black/[0.06] dark:bg-white/[0.06]" />
       ) : (
-        <p className="mt-3 text-[22px] font-semibold leading-none tracking-[-0.7px] text-white">
+        <p className="mt-3 text-[22px] font-semibold leading-none tracking-[-0.7px] text-[#111111] dark:text-white">
           {raw ? value : formatNumber(Number(value))}
         </p>
       )}
 
-      <p className="mt-2 text-[9px] text-white/25">
+      <p className="mt-2 text-[9px] text-black/35 dark:text-white/25">
         {loading ? " " : detail}
       </p>
     </div>
@@ -547,23 +511,23 @@ function IdentityCard({
   loading: boolean;
 }) {
   return (
-    <div className="min-h-[82px] rounded-[18px] border border-white/[0.065] bg-[#0c0c0c] px-5 py-4">
-      <div className="flex items-center gap-2 text-[10px] font-medium text-white/30">
+    <div className="min-h-[82px] rounded-[18px] border border-black/[0.08] bg-white px-5 py-4 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
+      <div className="flex items-center gap-2 text-[10px] font-medium text-black/40 dark:text-white/30">
         <HugeiconsIcon
           icon={icon}
           size={13}
           color="currentColor"
           strokeWidth={1.8}
-          className="text-white/45"
+          className="text-black/45 dark:text-white/45"
         />
 
         {label}
       </div>
 
       {loading ? (
-        <div className="mt-3 h-3 w-24 animate-pulse rounded bg-white/[0.06]" />
+        <div className="mt-3 h-3 w-24 animate-pulse rounded bg-black/[0.06] dark:bg-white/[0.06]" />
       ) : (
-        <p className="mt-3 truncate text-[13px] font-semibold text-white/90">
+        <p className="mt-3 truncate text-[13px] font-semibold text-black/90 dark:text-white/90">
           {value}
         </p>
       )}
@@ -593,8 +557,8 @@ function DeviceAnalytics({
   const unknownPercent = percentage(unknown, total);
 
   return (
-    <div className="min-h-[270px] rounded-[20px] border border-white/[0.065] bg-[#0c0c0c] p-5">
-      <p className="text-[11px] font-semibold text-white/80">
+    <div className="min-h-[270px] rounded-[20px] border border-black/[0.08] bg-white p-5 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
+      <p className="text-[11px] font-semibold text-black/80 dark:text-white/80">
         Visitor Devices in the last{" "}
         <span className="text-[#5360ff]">
           {range} {range === 1 ? "day" : "days"}
@@ -618,14 +582,14 @@ function DeviceAnalytics({
             }}
           />
 
-          <div className="absolute inset-[17px] rounded-full bg-[#0c0c0c]" />
+          <div className="absolute inset-[17px] rounded-full bg-white dark:bg-[#0c0c0c]" />
 
           <div className="relative text-center">
-            <p className="text-[22px] font-semibold tracking-[-0.7px] text-white">
+            <p className="text-[22px] font-semibold tracking-[-0.7px] text-[#111111] dark:text-white">
               {loading ? "—" : formatNumber(total)}
             </p>
 
-            <p className="mt-1 text-[9px] text-white/25">
+            <p className="mt-1 text-[9px] text-black/35 dark:text-white/25">
               visitors
             </p>
           </div>
@@ -687,23 +651,23 @@ function DeviceRow({
             size={12}
             color="currentColor"
             strokeWidth={1.7}
-            className="text-white/30"
+            className="text-black/35 dark:text-white/30"
           />
 
-          <span className="text-[10px] font-medium text-white/70">
+          <span className="text-[10px] font-medium text-black/70 dark:text-white/70">
             {label}
           </span>
         </div>
 
-        <span className="text-[10px] text-white/35">
+        <span className="text-[10px] text-black/45 dark:text-white/35">
           {percent}%{" "}
-          <span className="text-white/20">
+          <span className="text-black/25 dark:text-white/20">
             ({formatNumber(count)})
           </span>
         </span>
       </div>
 
-      <div className="h-[6px] overflow-hidden rounded-full bg-white/[0.055]">
+      <div className="h-[6px] overflow-hidden rounded-full bg-black/[0.07] dark:bg-white/[0.055]">
         <motion.div
           initial={{
             width: 0,
@@ -739,7 +703,7 @@ function CountryAnalytics({
   const displayedCountries = countries.slice(0, 8);
 
   return (
-    <div className="rounded-[20px] border border-white/[0.065] bg-[#0c0c0c] p-5">
+    <div className="rounded-[20px] border border-black/[0.08] bg-white p-5 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -748,22 +712,22 @@ function CountryAnalytics({
               size={14}
               color="currentColor"
               strokeWidth={1.8}
-              className="text-white/40"
+              className="text-black/45 dark:text-white/40"
             />
 
-            <p className="text-[11px] font-semibold text-white/80">
+            <p className="text-[11px] font-semibold text-black/80 dark:text-white/80">
               Visitor Countries
             </p>
           </div>
 
-          <p className="mt-1 text-[9px] text-white/25">
+          <p className="mt-1 text-[9px] text-black/35 dark:text-white/25">
             Top locations from the last{" "}
             {range} {range === 1 ? "day" : "days"}.
           </p>
         </div>
 
         {!loading && (
-          <span className="text-[10px] font-medium text-white/25">
+          <span className="text-[10px] font-medium text-black/35 dark:text-white/25">
             {formatNumber(total)} visitors
           </span>
         )}
@@ -774,22 +738,22 @@ function CountryAnalytics({
           {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
-              className="h-[54px] animate-pulse rounded-[12px] bg-white/[0.025]"
+              className="h-[54px] animate-pulse rounded-[12px] bg-black/[0.04] dark:bg-white/[0.025]"
             />
           ))}
         </div>
       ) : displayedCountries.length === 0 ? (
-        <div className="mt-6 flex min-h-[120px] items-center justify-center rounded-[14px] border border-dashed border-white/[0.06] bg-black/10">
+        <div className="mt-6 flex min-h-[120px] items-center justify-center rounded-[14px] border border-dashed border-black/[0.09] bg-black/[0.02] dark:border-white/[0.06] dark:bg-black/10">
           <div className="text-center">
             <HugeiconsIcon
               icon={Globe02Icon}
               size={20}
               color="currentColor"
               strokeWidth={1.6}
-              className="mx-auto text-white/15"
+              className="mx-auto text-black/20 dark:text-white/15"
             />
 
-            <p className="mt-2 text-[10px] text-white/25">
+            <p className="mt-2 text-[10px] text-black/35 dark:text-white/25">
               No country data for this period.
             </p>
           </div>
@@ -817,24 +781,24 @@ function CountryAnalytics({
               >
                 <div className="mb-2 flex items-center justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-6 min-w-8 items-center justify-center rounded-[7px] border border-white/[0.06] bg-white/[0.025] px-1.5 text-[8px] font-semibold tracking-[0.04em] text-white/35">
+                    <span className="flex h-6 min-w-8 items-center justify-center rounded-[7px] border border-black/[0.08] bg-black/[0.025] px-1.5 text-[8px] font-semibold tracking-[0.04em] text-black/45 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-white/35">
                       {country.code}
                     </span>
 
-                    <span className="truncate text-[10px] font-medium text-white/65">
+                    <span className="truncate text-[10px] font-medium text-black/65 dark:text-white/65">
                       {getCountryName(country.code)}
                     </span>
                   </div>
 
-                  <span className="shrink-0 text-[9px] text-white/30">
+                  <span className="shrink-0 text-[9px] text-black/40 dark:text-white/30">
                     {percent}%{" "}
-                    <span className="text-white/15">
+                    <span className="text-black/20 dark:text-white/15">
                       ({formatNumber(country.count)})
                     </span>
                   </span>
                 </div>
 
-                <div className="h-[5px] overflow-hidden rounded-full bg-white/[0.045]">
+                <div className="h-[5px] overflow-hidden rounded-full bg-black/[0.065] dark:bg-white/[0.045]">
                   <motion.div
                     initial={{
                       width: 0,

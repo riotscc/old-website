@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
   AnimatePresence,
   motion,
@@ -17,12 +18,6 @@ import {
   Cancel01Icon,
 } from "@hugeicons/core-free-icons";
 
-type UserProfile = {
-  id: string;
-  username: string;
-  displayName: string;
-  avatar: string | null;
-};
 
 const navigation = [
   {
@@ -41,11 +36,12 @@ const navigation = [
 
 export default function Header() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
 
-  const [user, setUser] = useState<UserProfile | null>(null);
   const [scrolled, setScrolled] = useState(false);
-  const [authLoaded, setAuthLoaded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const authLoaded = !loading;
 
   const { scrollY } = useScroll();
 
@@ -53,37 +49,6 @@ export default function Header() {
     setScrolled(latest > 24);
   });
 
-  useEffect(() => {
-    let mounted = true;
-
-    fetch("/api/auth/me", {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return response.json();
-      })
-      .then((data) => {
-        if (!mounted) return;
-
-        if (data?.user) {
-          setUser(data.user);
-        }
-
-        setAuthLoaded(true);
-      })
-      .catch(() => {
-        if (mounted) {
-          setAuthLoaded(true);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     setMobileOpen(false);

@@ -248,14 +248,14 @@ export default function ProfileViewsChart({
     : 5;
 
   return (
-    <div className="relative min-h-[300px] overflow-hidden rounded-[20px] border border-white/[0.065] bg-[#0c0c0c] p-5">
+    <div className="relative min-h-[300px] overflow-hidden rounded-[20px] border border-black/[0.08] bg-white p-5 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold text-white/80">
+          <p className="text-[11px] font-semibold text-black/80 dark:text-white/80">
             Profile Views
           </p>
 
-          <p className="mt-1 text-[9px] text-white/25">
+          <p className="mt-1 text-[9px] text-black/35 dark:text-white/25">
             Views over the last{" "}
             <span className="text-[#5360ff]">
               {range} {range === 1 ? "day" : "days"}
@@ -265,11 +265,11 @@ export default function ProfileViewsChart({
 
         {!loading && (
           <div className="text-right">
-            <p className="text-[18px] font-semibold tracking-[-0.6px] text-white">
+            <p className="text-[18px] font-semibold tracking-[-0.6px] text-black dark:text-white">
               {formatNumber(totalViews)}
             </p>
 
-            <p className="text-[8px] uppercase tracking-[0.08em] text-white/20">
+            <p className="text-[8px] uppercase tracking-[0.08em] text-black/30 dark:text-white/20">
               total views
             </p>
           </div>
@@ -281,10 +281,10 @@ export default function ProfileViewsChart({
         className="relative mt-5 h-[220px] w-full"
       >
         {loading ? (
-          <div className="h-full w-full animate-pulse rounded-[14px] bg-white/[0.02]" />
+          <div className="h-full w-full animate-pulse rounded-[14px] bg-black/[0.035] dark:bg-white/[0.02]" />
         ) : normalized.length === 0 ? (
           <div className="flex h-full items-center justify-center">
-            <p className="text-[10px] text-white/25">
+            <p className="text-[10px] text-black/35 dark:text-white/25">
               No analytics data available.
             </p>
           </div>
@@ -335,17 +335,19 @@ export default function ProfileViewsChart({
                     x2={width - paddingRight}
                     y1={tick.y}
                     y2={tick.y}
-                    stroke="rgba(255,255,255,0.055)"
+                    stroke="currentColor"
                     strokeWidth="1"
                     vectorEffect="non-scaling-stroke"
+                    className="text-black/[0.08] dark:text-white/[0.055]"
                   />
 
                   <text
                     x={paddingLeft - 12}
                     y={tick.y + 3}
                     textAnchor="end"
-                    fill="rgba(255,255,255,0.22)"
+                    fill="currentColor"
                     fontSize="9"
+                    className="text-black/35 dark:text-white/25"
                   >
                     {tick.value}
                   </text>
@@ -424,8 +426,9 @@ export default function ProfileViewsChart({
                         x={point.x}
                         y={height - 8}
                         textAnchor="middle"
-                        fill="rgba(255,255,255,0.25)"
+                        fill="currentColor"
                         fontSize="9"
+                        className="text-black/40 dark:text-white/25"
                       >
                         {formatChartDate(point.date)}
                       </text>
@@ -450,10 +453,11 @@ export default function ProfileViewsChart({
                     x2={plottedActivePoint.x}
                     y1={paddingTop}
                     y2={baselineY}
-                    stroke="rgba(255,255,255,0.12)"
+                    stroke="currentColor"
                     strokeWidth="1"
                     strokeDasharray="3 4"
                     vectorEffect="non-scaling-stroke"
+                    className="text-black/20 dark:text-white/15"
                   />
 
                   <circle
@@ -469,9 +473,10 @@ export default function ProfileViewsChart({
                     cy={plottedActivePoint.y}
                     r="3.5"
                     fill="#2832F9"
-                    stroke="white"
+                    stroke="currentColor"
                     strokeWidth="1.5"
                     vectorEffect="non-scaling-stroke"
+                    className="text-white"
                   />
                 </>
               )}
@@ -511,20 +516,20 @@ export default function ProfileViewsChart({
                     top: tooltipTop,
                     width: tooltipWidth,
                   }}
-                  className="pointer-events-none absolute z-20 rounded-[11px] border border-white/[0.09] bg-[#111111]/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+                  className="pointer-events-none absolute z-20 rounded-[11px] border border-black/[0.08] bg-white/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:border-white/[0.09] dark:bg-[#111111]/95 dark:shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
                 >
-                  <p className="truncate text-[9px] font-medium text-white/35">
+                  <p className="truncate text-[9px] font-medium text-black/45 dark:text-white/35">
                     {formatTooltipDate(activePoint.date)}
                   </p>
 
                   <div className="mt-1.5 flex items-center">
                     <span className="mr-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2832F9]" />
 
-                    <span className="text-[10px] font-medium text-white/45">
+                    <span className="text-[10px] font-medium text-black/55 dark:text-white/45">
                       Views
                     </span>
 
-                    <span className="ml-auto text-[12px] font-semibold text-white">
+                    <span className="ml-auto text-[12px] font-semibold text-black dark:text-white">
                       {formatNumber(activePoint.views)}
                     </span>
                   </div>

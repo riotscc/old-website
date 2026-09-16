@@ -14,6 +14,7 @@ export type UserPlan =
 
 export interface User {
     id: string;
+    userNumber: number;
     discordId: string;
     username: string;
     globalName: string | null;
@@ -29,6 +30,11 @@ export interface User {
     plan: UserPlan;
     createdAt: Date;
     updatedAt: Date;
+}
+
+export interface UserNumberCounter {
+    current: number;
+    next: number;
 }
 
 function normalizeEmail(email: string): string {
@@ -79,6 +85,7 @@ export type LeaderboardSort =
 
 export interface LeaderboardUser {
     id: string;
+    userNumber: number;
     username: string;
     globalName: string | null;
     avatar: string | null;
@@ -105,6 +112,7 @@ export async function getLeaderboardUsers(
     const result = await pool.query(`
         SELECT
             id,
+            user_number,
             username,
             global_name,
             avatar,
@@ -120,6 +128,7 @@ export async function getLeaderboardUsers(
 
     return result.rows.map((row) => ({
         id: String(row.id),
+        userNumber: Number(row.user_number),
         username: String(row.username),
         globalName: row.global_name
             ? String(row.global_name)
@@ -134,18 +143,59 @@ export async function getLeaderboardUsers(
     }));
 }
 
+export async function getUserNumberCounter(): Promise<UserNumberCounter> {
+    const result = await pool.query(`
+        SELECT
+            CASE
+                WHEN is_called
+                    THEN last_value
+                ELSE last_value - 1
+            END AS current,
+            CASE
+                WHEN is_called
+                    THEN last_value + 1
+                ELSE last_value
+            END AS next
+        FROM users_user_number_seq
+    `);
+
+    return {
+        current: Number(
+            result.rows[0]?.current ?? 0
+        ),
+        next: Number(
+            result.rows[0]?.next ?? 1
+        ),
+    };
+}
+
+export async function getNextUserNumber(): Promise<number> {
+    const counter =
+        await getUserNumberCounter();
+
+    return counter.next;
+}
+
 export async function verifyPassword(
     password: string,
     storedHash: string
 ): Promise<boolean> {
-    const [saltHex, keyHex] = storedHash.split(":");
+    const [saltHex, keyHex] =
+        storedHash.split(":");
 
     if (!saltHex || !keyHex) {
         return false;
     }
 
-    const salt = Buffer.from(saltHex, "hex");
-    const storedKey = Buffer.from(keyHex, "hex");
+    const salt = Buffer.from(
+        saltHex,
+        "hex"
+    );
+
+    const storedKey = Buffer.from(
+        keyHex,
+        "hex"
+    );
 
     const derivedKey = await new Promise<Buffer>(
         (resolve, reject) => {
@@ -165,7 +215,10 @@ export async function verifyPassword(
         }
     );
 
-    if (derivedKey.length !== storedKey.length) {
+    if (
+        derivedKey.length !==
+        storedKey.length
+    ) {
         return false;
     }
 
@@ -175,7 +228,9 @@ export async function verifyPassword(
     );
 }
 
-function decryptEmail(row: any): string | null {
+function decryptEmail(
+    row: any
+): string | null {
     if (
         !row.email_data ||
         !row.email_iv ||
@@ -197,7 +252,8 @@ function decryptEmail(row: any): string | null {
 
 function mapUser(row: any): User {
     return {
-        id: row.id,
+        id: String(row.id),
+        userNumber: Number(row.user_number),
         discordId: row.discord_id,
         username: row.username,
         globalName: row.global_name,
@@ -209,7 +265,9 @@ function mapUser(row: any): User {
         email2fa: row.email_2fa,
         email: decryptEmail(row),
         emailHash: row.email_hash,
-        hasPassword: Boolean(row.password_hash),
+        hasPassword: Boolean(
+            row.password_hash
+        ),
         plan: row.plan as UserPlan,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -218,6 +276,7 @@ function mapUser(row: any): User {
 
 const USER_SELECT = `
     id,
+    user_number,
     discord_id,
     username,
     global_name,
@@ -249,6 +308,25 @@ export async function getUserById(
         LIMIT 1
         `,
         [id]
+    );
+
+    return result.rows[0]
+        ? mapUser(result.rows[0])
+        : null;
+}
+
+export async function getUserByUserNumber(
+    userNumber: number
+): Promise<User | null> {
+    const result = await pool.query(
+        `
+        SELECT
+            ${USER_SELECT}
+        FROM users
+        WHERE user_number = $1
+        LIMIT 1
+        `,
+        [userNumber]
     );
 
     return result.rows[0]
@@ -297,7 +375,8 @@ export async function getUserByUsername(
 export async function getUserByEmail(
     email: string
 ): Promise<User | null> {
-    const emailHash = hashEmail(email);
+    const emailHash =
+        hashEmail(email);
 
     const result = await pool.query(
         `
@@ -323,23 +402,51 @@ export async function upsertUser(data: {
 }): Promise<User> {
     const result = await pool.query(
         `
-        INSERT INTO users (
-            discord_id,
-            username,
-            global_name,
-            avatar
+        WITH updated AS (
+            UPDATE users
+            SET
+                username = $2,
+                global_name = $3,
+                avatar = $4,
+                updated_at = NOW()
+            WHERE discord_id = $1
+            RETURNING
+                ${USER_SELECT}
+        ),
+        inserted AS (
+            INSERT INTO users (
+                discord_id,
+                username,
+                global_name,
+                avatar
+            )
+            SELECT
+                $1,
+                $2,
+                $3,
+                $4
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM updated
+            )
+            ON CONFLICT (discord_id)
+            DO UPDATE SET
+                username = EXCLUDED.username,
+                global_name = EXCLUDED.global_name,
+                avatar = EXCLUDED.avatar,
+                updated_at = NOW()
+            RETURNING
+                ${USER_SELECT}
         )
-        VALUES ($1, $2, $3, $4)
+        SELECT *
+        FROM updated
 
-        ON CONFLICT (discord_id)
-        DO UPDATE SET
-            username = EXCLUDED.username,
-            global_name = EXCLUDED.global_name,
-            avatar = EXCLUDED.avatar,
-            updated_at = NOW()
+        UNION ALL
 
-        RETURNING
-            ${USER_SELECT}
+        SELECT *
+        FROM inserted
+
+        LIMIT 1
         `,
         [
             data.discordId,
@@ -349,7 +456,9 @@ export async function upsertUser(data: {
         ]
     );
 
-    return mapUser(result.rows[0]);
+    return mapUser(
+        result.rows[0]
+    );
 }
 
 export async function createEmailUser(data: {
@@ -357,19 +466,27 @@ export async function createEmailUser(data: {
     email: string;
     password: string;
 }): Promise<User> {
-    const username = data.username.trim().toLowerCase();
-    const normalizedEmail = normalizeEmail(data.email);
+    const username =
+        data.username
+            .trim()
+            .toLowerCase();
 
-    const emailHash = hashEmail(
-        normalizedEmail
-    );
+    const normalizedEmail =
+        normalizeEmail(data.email);
 
-    const encryptedEmail: EncryptedPayload =
-        encrypt(normalizedEmail);
+    const emailHash =
+        hashEmail(
+            normalizedEmail
+        );
 
-    const passwordHash = await hashPassword(
-        data.password
-    );
+    const encryptedEmail:
+        EncryptedPayload =
+            encrypt(normalizedEmail);
+
+    const passwordHash =
+        await hashPassword(
+            data.password
+        );
 
     const result = await pool.query(
         `
@@ -409,7 +526,9 @@ export async function createEmailUser(data: {
         ]
     );
 
-    return mapUser(result.rows[0]);
+    return mapUser(
+        result.rows[0]
+    );
 }
 
 export async function completeDiscordOnboarding(data: {
@@ -417,20 +536,24 @@ export async function completeDiscordOnboarding(data: {
     email: string;
     password: string;
 }): Promise<User> {
-    const normalizedEmail = normalizeEmail(
-        data.email
-    );
+    const normalizedEmail =
+        normalizeEmail(
+            data.email
+        );
 
-    const emailHash = hashEmail(
-        normalizedEmail
-    );
+    const emailHash =
+        hashEmail(
+            normalizedEmail
+        );
 
-    const encryptedEmail: EncryptedPayload =
-        encrypt(normalizedEmail);
+    const encryptedEmail:
+        EncryptedPayload =
+            encrypt(normalizedEmail);
 
-    const passwordHash = await hashPassword(
-        data.password
-    );
+    const passwordHash =
+        await hashPassword(
+            data.password
+        );
 
     const result = await pool.query(
         `
@@ -457,10 +580,14 @@ export async function completeDiscordOnboarding(data: {
     );
 
     if (!result.rows[0]) {
-        throw new Error("User not found");
+        throw new Error(
+            "User not found"
+        );
     }
 
-    return mapUser(result.rows[0]);
+    return mapUser(
+        result.rows[0]
+    );
 }
 
 export async function verifyUserPassword(
@@ -498,7 +625,10 @@ export async function incrementUserLikes(
         `
         UPDATE users
         SET
-            likes = GREATEST(likes + $2, 0),
+            likes = GREATEST(
+                likes + $2,
+                0
+            ),
             updated_at = NOW()
         WHERE id = $1
         RETURNING
@@ -528,14 +658,19 @@ export async function incrementUserViews(
         );
 
         return result.rows[0]
-            ? Number(result.rows[0].views)
+            ? Number(
+                result.rows[0].views
+            )
             : null;
     }
 
-    const client = await pool.connect();
+    const client =
+        await pool.connect();
 
     try {
-        await client.query("BEGIN");
+        await client.query(
+            "BEGIN"
+        );
 
         const profileResult =
             await client.query(
@@ -548,8 +683,13 @@ export async function incrementUserViews(
                 [profileId]
             );
 
-        if (!profileResult.rows[0]) {
-            await client.query("ROLLBACK");
+        if (
+            !profileResult.rows[0]
+        ) {
+            await client.query(
+                "ROLLBACK"
+            );
+
             return null;
         }
 
@@ -564,8 +704,13 @@ export async function incrementUserViews(
                 [viewerId]
             );
 
-        if (!viewerResult.rows[0]) {
-            await client.query("ROLLBACK");
+        if (
+            !viewerResult.rows[0]
+        ) {
+            await client.query(
+                "ROLLBACK"
+            );
+
             return null;
         }
 
@@ -584,10 +729,16 @@ export async function incrementUserViews(
                 DO NOTHING
                 RETURNING profile_id
                 `,
-                [profileId, viewerId]
+                [
+                    profileId,
+                    viewerId,
+                ]
             );
 
-        if ((viewResult.rowCount ?? 0) > 0) {
+        if (
+            (viewResult.rowCount ?? 0) >
+            0
+        ) {
             await client.query(
                 `
                 UPDATE users
@@ -611,13 +762,20 @@ export async function incrementUserViews(
                 [profileId]
             );
 
-        await client.query("COMMIT");
+        await client.query(
+            "COMMIT"
+        );
 
         return result.rows[0]
-            ? Number(result.rows[0].views)
+            ? Number(
+                result.rows[0].views
+            )
             : null;
     } catch (error) {
-        await client.query("ROLLBACK");
+        await client.query(
+            "ROLLBACK"
+        );
+
         throw error;
     } finally {
         client.release();

@@ -5,7 +5,7 @@ import OverviewCard from "@/components/dashboard/cards/overview-card";
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-[#080808] text-white">
+    <div className="min-h-screen bg-white text-black dark:bg-[#080808] dark:text-white">
       <DashboardSidebar />
 
       <main className="min-h-screen lg:ml-[250px]">

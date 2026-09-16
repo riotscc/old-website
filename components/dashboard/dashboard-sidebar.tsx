@@ -5,15 +5,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useAuth } from "@/components/providers/auth-provider";
+import UnderConstructionModal from "@/components/custom/not-finished";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import {
   ArrowDown01Icon,
-  Award01Icon,
   Cancel01Icon,
   Diamond02Icon,
   ExternalLinkIcon,
-  Layout01Icon,
-  Link01Icon,
   Logout01Icon,
   Home01Icon,
   DiscordIcon,
@@ -23,54 +24,79 @@ import {
   Settings01Icon,
   Share08Icon,
   UserIcon,
-  UserSwitchIcon,
 } from "@hugeicons/core-free-icons";
-import NoPremium from "@/components/dashboard/no-premium";
 
 type HugeIconType = React.ComponentProps<typeof HugeiconsIcon>["icon"];
 
-type CurrentUser = {
-  id?: string;
-  username: string;
-  displayName: string;
-  avatar: string | null;
-  plan?: string;
-};
 
 type SearchItem = {
   label: string;
   href: string;
   section: string;
   icon: HugeIconType;
+  underConstruction?: boolean;
 };
 
-const accountLinks = [
+const profileLinks = [
   {
-    label: "Overview",
-    href: "/dashboard",
+    label: "Assets",
+    href: "/dashboard/profile/assets",
+    underConstruction: true,
   },
   {
     label: "Badges",
-    href: "/dashboard/badges",
+    href: "/dashboard/profile/badges",
   },
   {
-    label: "Aliases",
-    href: "/dashboard/aliases",
+    label: "Links",
+    href: "/dashboard/profile/links",
   },
   {
-    label: "Settings",
-    href: "/dashboard/settings",
+    label: "Projects",
+    href: "/dashboard/profile/projects",
+    underConstruction: true,
+  },
+  {
+    label: "Widgets",
+    href: "/dashboard/profile/widgets",
+    underConstruction: true,
+  },
+  {
+    label: "Section Builder",
+    href: "/dashboard/profile/section-builder",
+    underConstruction: true,
   },
 ];
 
-const customizeLinks = [
+const accountLinks = [
   {
-    label: "General",
-    href: "/dashboard/customize/general",
+    label: "Settings",
+    href: "/dashboard/account/settings",
   },
   {
-    label: "Layout",
-    href: "/dashboard/customize/layout",
+    label: "Profiles",
+    href: "/dashboard/account/profiles",
+    underConstruction: true,
+  },
+  {
+    label: "Domains",
+    href: "/dashboard/account/domains",
+    underConstruction: true,
+  },
+  {
+    label: "Billing",
+    href: "/dashboard/account/billing",
+    underConstruction: true,
+  },
+  {
+    label: "Wallet",
+    href: "/dashboard/account/wallet",
+    underConstruction: true,
+  },
+  {
+    label: "Tickets",
+    href: "/dashboard/account/tickets",
+    underConstruction: true,
   },
 ];
 
@@ -78,10 +104,12 @@ const premiumLinks = [
   {
     label: "General",
     href: "/dashboard/premium/general",
+    underConstruction: true,
   },
   {
     label: "Metadata",
     href: "/dashboard/premium/metadata",
+    underConstruction: true,
   },
 ];
 
@@ -89,145 +117,102 @@ const searchItems: SearchItem[] = [
   {
     label: "Overview",
     href: "/dashboard",
-    section: "Account",
+    section: "Dashboard",
+    icon: Home01Icon,
+  },
+  {
+    label: "Customize",
+    href: "/dashboard/customize",
+    section: "Dashboard",
+    icon: PaintBoardIcon,
+    underConstruction: true,
+  },
+  ...profileLinks.map((item) => ({
+    ...item,
+    section: "Profile",
     icon: UserIcon,
-  },
-  {
-    label: "Badges",
-    href: "/dashboard/badges",
-    section: "Account",
-    icon: Award01Icon,
-  },
-  {
-    label: "Aliases",
-    href: "/dashboard/aliases",
-    section: "Account",
-    icon: UserSwitchIcon,
-  },
-  {
-    label: "Settings",
-    href: "/dashboard/settings",
+  })),
+  ...accountLinks.map((item) => ({
+    ...item,
     section: "Account",
     icon: Settings01Icon,
-  },
-  {
-    label: "General",
-    href: "/dashboard/customize/general",
-    section: "Customize",
-    icon: PaintBoardIcon,
-  },
-  {
-    label: "Layout",
-    href: "/dashboard/customize/layout",
-    section: "Customize",
-    icon: Layout01Icon,
-  },
-  {
-    label: "Links",
-    href: "/dashboard/links",
-    section: "Dashboard",
-    icon: Link01Icon,
-  },
-  {
-    label: "Templates",
-    href: "/dashboard/templates",
-    section: "Dashboard",
-    icon: Layout01Icon,
-  },
-  {
-    label: "General",
-    href: "/dashboard/premium/general",
+  })),
+  ...premiumLinks.map((item) => ({
+    ...item,
     section: "Premium",
     icon: Diamond02Icon,
-  },
-  {
-    label: "Metadata",
-    href: "/dashboard/premium/metadata",
-    section: "Premium",
-    icon: Diamond02Icon,
-  },
+  })),
 ];
 
 export default function CustomSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [user, setUser] = React.useState<CurrentUser | null>(null);
-  const [loadingUser, setLoadingUser] = React.useState(true);
-  const [accountOpen, setAccountOpen] = React.useState(true);
-  const [customizeOpen, setCustomizeOpen] = React.useState(false);
+  const { user, loading: loadingUser } = useAuth();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+
+  const applyTheme = React.useCallback(
+    (nextTheme: "light" | "dark" | "system") => {
+      const root = document.documentElement;
+      const resolved =
+        nextTheme === "system"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : nextTheme;
+
+      setTheme(nextTheme);
+      root.classList.toggle("dark", resolved === "dark");
+      root.style.colorScheme = resolved;
+    },
+    [setTheme]
+  );
+  const [profileOpen, setProfileOpen] = React.useState(() =>
+    profileLinks.some(
+      (item) =>
+        pathname === item.href || pathname.startsWith(`${item.href}/`)
+    )
+  );
+  const [accountOpen, setAccountOpen] = React.useState(() =>
+    accountLinks.some(
+      (item) =>
+        pathname === item.href || pathname.startsWith(`${item.href}/`)
+    )
+  );
   const [premiumOpen, setPremiumOpen] = React.useState(() =>
     pathname.startsWith("/dashboard/premium")
   );
-  const [noPremiumOpen, setNoPremiumOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [constructionVersion, setConstructionVersion] = React.useState(0);
 
   const userMenuRef = React.useRef<HTMLDivElement>(null);
 
+
   React.useEffect(() => {
-    let mounted = true;
-
-    async function loadUser() {
-      try {
-        const [authResponse, planResponse] = await Promise.all([
-          fetch("/api/auth/me", {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          }),
-          fetch("/api/account/plan", {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          }),
-        ]);
-
-        if (!authResponse.ok || !mounted) {
-          return;
-        }
-
-        const authData = await authResponse.json();
-        const planData = planResponse.ok
-          ? await planResponse.json()
-          : null;
-
-        if (!mounted || !authData?.user) {
-          return;
-        }
-
-        setUser({
-          id: authData.user.id,
-          username:
-            authData.user.username ||
-            authData.user.name ||
-            authData.user.displayName ||
-            "user",
-          displayName:
-            authData.user.displayName ||
-            authData.user.globalName ||
-            authData.user.name ||
-            authData.user.username ||
-            "User",
-          avatar: authData.user.avatar || null,
-          plan: planData?.plan || "free",
-        });
-      } catch {
-      } finally {
-        if (mounted) {
-          setLoadingUser(false);
-        }
-      }
+    if (theme !== "system") {
+      return;
     }
 
-    loadUser();
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const syncSystemTheme = () => {
+      const root = document.documentElement;
+      const resolved = media.matches ? "dark" : "light";
+
+      root.classList.toggle("dark", resolved === "dark");
+      root.style.colorScheme = resolved;
+    };
+
+    syncSystemTheme();
+    media.addEventListener("change", syncSystemTheme);
 
     return () => {
-      mounted = false;
+      media.removeEventListener("change", syncSystemTheme);
     };
-  }, []);
+  }, [theme]);
 
   React.useEffect(() => {
     function handleKeyboard(event: KeyboardEvent) {
@@ -239,7 +224,6 @@ export default function CustomSidebar() {
       if (event.key === "Escape") {
         setSearchOpen(false);
         setUserMenuOpen(false);
-        setNoPremiumOpen(false);
       }
     }
 
@@ -273,38 +257,63 @@ export default function CustomSidebar() {
     setSearchOpen(false);
     setSearchQuery("");
 
+    if (
+      profileLinks.some(
+        (item) =>
+          pathname === item.href || pathname.startsWith(`${item.href}/`)
+      )
+    ) {
+      setProfileOpen(true);
+    }
+
+    if (
+      accountLinks.some(
+        (item) =>
+          pathname === item.href || pathname.startsWith(`${item.href}/`)
+      )
+    ) {
+      setAccountOpen(true);
+    }
+
     if (pathname.startsWith("/dashboard/premium")) {
       setPremiumOpen(true);
     }
   }, [pathname]);
 
+  const username = user?.username || "yourname";
+  const plan = user?.plan?.toLowerCase() || "free";
+  const isPremium = ["premium", "pro", "business", "legacy"].includes(plan);
+
   const filteredItems = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const visibleItems = isPremium
+      ? searchItems
+      : searchItems.filter((item) => item.section !== "Premium");
 
     if (!query) {
-      return searchItems;
+      return visibleItems;
     }
 
-    return searchItems.filter((item) => {
+    return visibleItems.filter((item) => {
       return (
         item.label.toLowerCase().includes(query) ||
         item.section.toLowerCase().includes(query)
       );
     });
-  }, [searchQuery]);
+  }, [searchQuery, isPremium]);
 
-  const username = user?.username || "yourname";
-  const isPremium = user?.plan?.toLowerCase() === "premium";
-
-  function handlePremiumItem(href: string) {
-    if (loadingUser) return;
-
-    if (!isPremium) {
-      setNoPremiumOpen(true);
+  function handleItemOpen(item: {
+    href: string;
+    underConstruction?: boolean;
+  }) {
+    if (item.underConstruction) {
+      setSearchOpen(false);
+      setUserMenuOpen(false);
+      setConstructionVersion((value) => value + 1);
       return;
     }
 
-    router.push(href);
+    router.push(item.href);
   }
 
   async function handleShare() {
@@ -334,7 +343,7 @@ export default function CustomSidebar() {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[250px] border-r border-white/[0.055] bg-[#080808] lg:flex lg:flex-col">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[250px] border-r border-black/[0.08] bg-white text-[#111111] lg:flex lg:flex-col dark:border-white/[0.055] dark:bg-[#080808] dark:text-white">
         <div className="flex h-[68px] shrink-0 items-center px-4">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
@@ -342,11 +351,11 @@ export default function CustomSidebar() {
               alt="carts.lol"
               width={29}
               height={29}
-              className="h-[29px] w-[29px] object-contain"
+              className="h-[29px] w-[29px] object-contain invert dark:invert-0"
               priority
             />
 
-            <span className="text-[22px] font-bold tracking-[-1px] text-white">
+            <span className="text-[22px] font-bold tracking-[-1px] text-[#111111] dark:text-white">
               carts.lol
             </span>
           </Link>
@@ -356,21 +365,21 @@ export default function CustomSidebar() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="group flex h-[42px] w-full items-center rounded-full border border-white/[0.08] bg-[#0b0b0b] px-3.5 text-left transition-all duration-200 hover:border-white/[0.13] hover:bg-[#0e0e0e]"
+            className="group flex h-[42px] w-full items-center rounded-full border border-black/[0.08] bg-black/[0.025] px-3.5 text-left transition-all duration-200 hover:border-black/[0.13] hover:bg-black/[0.045] dark:border-white/[0.08] dark:bg-[#0b0b0b] dark:hover:border-white/[0.13] dark:hover:bg-[#0e0e0e]"
           >
             <HugeiconsIcon
               icon={Search01Icon}
               size={15}
               color="currentColor"
               strokeWidth={1.8}
-              className="shrink-0 text-white"
+              className="shrink-0 text-black dark:text-white"
             />
 
-            <span className="ml-3 flex-1 truncate text-[12px] font-medium text-white/35">
+            <span className="ml-3 flex-1 truncate text-[12px] font-medium text-black/40 dark:text-white/35">
               Search features...
             </span>
 
-            <span className="flex h-[23px] items-center gap-1 rounded-[7px] border border-white/[0.08] bg-white/[0.035] px-2 text-[9px] font-medium text-white/30 transition-colors group-hover:text-white/45">
+            <span className="flex h-[23px] items-center gap-1 rounded-[7px] border border-black/[0.08] bg-black/[0.035] px-2 text-[9px] font-medium text-black/35 transition-colors group-hover:text-black/55 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-white/30 dark:group-hover:text-white/45">
               Ctrl K
             </span>
           </button>
@@ -378,11 +387,62 @@ export default function CustomSidebar() {
 
         <nav className="flex-1 overflow-y-auto px-3 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="space-y-1">
+            <MainItem
+              label="Overview"
+              href="/dashboard"
+              icon={Home01Icon}
+              active={pathname === "/dashboard"}
+            />
+
+            <MainItem
+              label="Customize"
+              href="/dashboard/customize"
+              icon={PaintBoardIcon}
+              active={
+                pathname === "/dashboard/customize" ||
+                pathname.startsWith("/dashboard/customize/")
+              }
+              underConstruction
+              onUnderConstruction={() =>
+                setConstructionVersion((value) => value + 1)
+              }
+            />
+
+            <SidebarGroup
+              title="Profile"
+              icon={UserIcon}
+              open={profileOpen}
+              onToggle={() => setProfileOpen((value) => !value)}
+              active={profileLinks.some(
+                (item) =>
+                  pathname === item.href || pathname.startsWith(`${item.href}/`)
+              )}
+            >
+              {profileLinks.map((item, index) => (
+                <NestedItem
+                  key={item.href}
+                  index={index}
+                  label={item.label}
+                  href={item.href}
+                  underConstruction={item.underConstruction}
+                  onUnderConstruction={() => setConstructionVersion((value) => value + 1)}
+                  active={
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`)
+                  }
+                />
+              ))}
+            </SidebarGroup>
+
             <SidebarGroup
               title="Account"
-              icon={UserIcon}
+              icon={Settings01Icon}
               open={accountOpen}
               onToggle={() => setAccountOpen((value) => !value)}
+              active={accountLinks.some(
+                (item) =>
+                  pathname === item.href || pathname.startsWith(`${item.href}/`)
+              )}
             >
               {accountLinks.map((item, index) => (
                 <NestedItem
@@ -390,28 +450,8 @@ export default function CustomSidebar() {
                   index={index}
                   label={item.label}
                   href={item.href}
-                  active={
-                    item.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : pathname === item.href ||
-                        pathname.startsWith(`${item.href}/`)
-                  }
-                />
-              ))}
-            </SidebarGroup>
-
-            <SidebarGroup
-              title="Customize"
-              icon={PaintBoardIcon}
-              open={customizeOpen}
-              onToggle={() => setCustomizeOpen((value) => !value)}
-            >
-              {customizeLinks.map((item, index) => (
-                <NestedItem
-                  key={item.href}
-                  index={index}
-                  label={item.label}
-                  href={item.href}
+                  underConstruction={item.underConstruction}
+                  onUnderConstruction={() => setConstructionVersion((value) => value + 1)}
                   active={
                     pathname === item.href ||
                     pathname.startsWith(`${item.href}/`)
@@ -420,47 +460,29 @@ export default function CustomSidebar() {
               ))}
             </SidebarGroup>
 
-            <MainItem
-              label="Links"
-              href="/dashboard/links"
-              icon={Link01Icon}
-              active={
-                pathname === "/dashboard/links" ||
-                pathname.startsWith("/dashboard/links/")
-              }
-            />
-
-            <MainItem
-              label="Templates"
-              href="/dashboard/templates"
-              icon={Layout01Icon}
-              active={
-                pathname === "/dashboard/templates" ||
-                pathname.startsWith("/dashboard/templates/")
-              }
-            />
-
-            <SidebarGroup
-              title="Premium"
-              icon={Diamond02Icon}
-              open={premiumOpen}
-              onToggle={() => setPremiumOpen((value) => !value)}
-              active={pathname.startsWith("/dashboard/premium")}
-              premium
-            >
-              {premiumLinks.map((item, index) => (
-                <PremiumNestedItem
-                  key={item.href}
-                  index={index}
-                  label={item.label}
-                  active={
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`)
-                  }
-                  onClick={() => handlePremiumItem(item.href)}
-                />
-              ))}
-            </SidebarGroup>
+            {isPremium && (
+              <SidebarGroup
+                title="Premium"
+                icon={Diamond02Icon}
+                open={premiumOpen}
+                onToggle={() => setPremiumOpen((value) => !value)}
+                active={pathname.startsWith("/dashboard/premium")}
+                premium
+              >
+                {premiumLinks.map((item, index) => (
+                  <PremiumNestedItem
+                    key={item.href}
+                    index={index}
+                    label={item.label}
+                    active={
+                      pathname === item.href ||
+                      pathname.startsWith(`${item.href}/`)
+                    }
+                    onClick={() => handleItemOpen(item)}
+                  />
+                ))}
+              </SidebarGroup>
+            )}
           </div>
         </nav>
 
@@ -468,7 +490,7 @@ export default function CustomSidebar() {
           <Link
             href={`/${username}`}
             target="_blank"
-            className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-white/[0.075] text-[12px] font-semibold text-white/85 transition-colors duration-200 hover:bg-white/[0.105] hover:text-white"
+            className="flex h-[42px] w-full items-center justify-center gap-2 rounded-[14px] bg-black/[0.055] text-[12px] font-semibold text-black/80 transition-colors duration-200 hover:bg-black/[0.09] hover:text-black dark:bg-white/[0.075] dark:text-white/85 dark:hover:bg-white/[0.105] dark:hover:text-white"
           >
             <HugeiconsIcon
               icon={ExternalLinkIcon}
@@ -517,52 +539,74 @@ export default function CustomSidebar() {
                     duration: 0.16,
                     ease: [0.22, 1, 0.36, 1],
                   }}
-                  className="absolute bottom-[calc(100%+8px)] left-0 w-full overflow-hidden rounded-[15px] border border-white/[0.08] bg-[#111111] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.6)]"
+                  className="absolute bottom-[calc(100%+8px)] left-0 w-full overflow-hidden rounded-[17px] border border-black/[0.08] bg-white p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.16)] dark:border-white/[0.075] dark:bg-[#0d0d0d] dark:shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
                 >
-                  <Link
-                    href="/"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[12px] font-medium text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white"
-                  >
-                    <HugeiconsIcon
-                      icon={Home01Icon}
-                      size={14}
-                      color="currentColor"
-                      strokeWidth={1.8}
-                    />
+                  <ThemeModeSelector
+                    theme={theme}
+                    resolvedTheme={resolvedTheme}
+                    onThemeChange={applyTheme}
+                  />
 
-                    Home
-                  </Link>
+                  <div className="mt-1 border-t border-black/[0.07] pt-1 dark:border-white/[0.055]">
+                    <Link
+                      href="/"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="group flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[11px] font-semibold text-black/70 transition-colors hover:bg-black/[0.045] hover:text-black dark:text-white/75 dark:hover:bg-white/[0.045] dark:hover:text-white"
+                    >
+                      <HugeiconsIcon
+                        icon={Home01Icon}
+                        size={14}
+                        color="currentColor"
+                        strokeWidth={1.8}
+                        className="text-black/55 transition-colors group-hover:text-black dark:text-white/65 dark:group-hover:text-white"
+                      />
 
-                  <Link
-                    href="/discord"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[12px] font-medium text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white"
-                  >
-                    <HugeiconsIcon
-                      icon={DiscordIcon}
-                      size={14}
-                      color="currentColor"
-                      strokeWidth={1.8}
-                    />
+                      Home
+                    </Link>
 
-                    Discord Server
-                  </Link>
+                    <Link
+                      href="/discord"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="group flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[11px] font-semibold text-black/70 transition-colors hover:bg-black/[0.045] hover:text-black dark:text-white/75 dark:hover:bg-white/[0.045] dark:hover:text-white"
+                    >
+                      <HugeiconsIcon
+                        icon={DiscordIcon}
+                        size={14}
+                        color="currentColor"
+                        strokeWidth={1.8}
+                        className="text-black/55 transition-colors group-hover:text-black dark:text-white/65 dark:group-hover:text-white"
+                      />
 
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex h-10 w-full items-center gap-2.5 rounded-[10px] px-3 text-left text-[12px] font-medium text-red-400/80 transition-colors hover:bg-red-500/[0.07] hover:text-red-400"
-                  >
-                    <HugeiconsIcon
-                      icon={Logout01Icon}
-                      size={14}
-                      color="currentColor"
-                      strokeWidth={1.8}
-                    />
+                      Discord Server
+                    </Link>
 
-                    Log out
-                  </button>
+                    <Link
+                      href="/help"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="group flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[11px] font-semibold text-black/70 transition-colors hover:bg-black/[0.045] hover:text-black dark:text-white/75 dark:hover:bg-white/[0.045] dark:hover:text-white"
+                    >
+                      <HelpIcon />
+
+                      Help Center
+                    </Link>
+                  </div>
+
+                  <div className="mt-1 border-t border-black/[0.07] pt-1 dark:border-white/[0.055]">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex h-10 w-full items-center gap-2.5 rounded-[10px] px-3 text-left text-[11px] font-semibold text-red-400 transition-colors hover:bg-red-500/[0.07] hover:text-red-300"
+                    >
+                      <HugeiconsIcon
+                        icon={Logout01Icon}
+                        size={14}
+                        color="currentColor"
+                        strokeWidth={1.8}
+                      />
+
+                      Logout
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -570,7 +614,7 @@ export default function CustomSidebar() {
             <button
               type="button"
               onClick={() => setUserMenuOpen((value) => !value)}
-              className="flex h-[54px] w-full items-center gap-2.5 rounded-[15px] border border-white/[0.065] bg-[#0b0b0b] px-2.5 text-left transition-all duration-200 hover:border-white/[0.1] hover:bg-[#0e0e0e]"
+              className="flex h-[54px] w-full items-center gap-2.5 rounded-[15px] border border-black/[0.08] bg-black/[0.02] px-2.5 text-left transition-all duration-200 hover:border-black/[0.12] hover:bg-black/[0.045] dark:border-white/[0.065] dark:bg-[#0b0b0b] dark:hover:border-white/[0.1] dark:hover:bg-[#0e0e0e]"
             >
               <UserAvatar
                 avatar={user?.avatar}
@@ -581,17 +625,17 @@ export default function CustomSidebar() {
               <span className="min-w-0 flex-1">
                 {loadingUser ? (
                   <>
-                    <span className="block h-2.5 w-20 animate-pulse rounded bg-white/[0.08]" />
+                    <span className="block h-2.5 w-20 animate-pulse rounded bg-black/[0.08] dark:bg-white/[0.08]" />
 
-                    <span className="mt-1.5 block h-2 w-12 animate-pulse rounded bg-white/[0.05]" />
+                    <span className="mt-1.5 block h-2 w-12 animate-pulse rounded bg-black/[0.05] dark:bg-white/[0.05]" />
                   </>
                 ) : (
                   <>
-                    <span className="block truncate text-[11px] font-semibold text-white/90">
+                    <span className="block truncate text-[11px] font-semibold text-black/90 dark:text-white/90">
                       {user?.displayName || "User"}
                     </span>
 
-                    <span className="mt-0.5 block truncate text-[9px] font-medium uppercase tracking-[0.02em] text-white/30">
+                    <span className="mt-0.5 block truncate text-[9px] font-medium uppercase tracking-[0.02em] text-black/35 dark:text-white/30">
                       {user?.plan || "Free"}
                     </span>
                   </>
@@ -603,17 +647,19 @@ export default function CustomSidebar() {
                 size={15}
                 color="currentColor"
                 strokeWidth={1.8}
-                className="shrink-0 text-white/45"
+                className="shrink-0 text-black/45 dark:text-white/45"
               />
             </button>
           </div>
         </div>
       </aside>
 
-      <NoPremium
-        open={noPremiumOpen}
-        onClose={() => setNoPremiumOpen(false)}
-      />
+      {constructionVersion > 0 && (
+        <UnderConstructionModal
+          key={constructionVersion}
+          discordUrl="https://discord.gg/carts"
+        />
+      )}
 
       <AnimatePresence>
         {searchOpen && (
@@ -657,15 +703,15 @@ export default function CustomSidebar() {
                 duration: 0.18,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="w-full max-w-[540px] overflow-hidden rounded-[20px] border border-white/[0.09] bg-[#0c0c0c] shadow-[0_30px_100px_rgba(0,0,0,0.75)]"
+              className="w-full max-w-[540px] overflow-hidden rounded-[20px] border border-black/[0.08] bg-white shadow-[0_30px_100px_rgba(0,0,0,0.18)] dark:border-white/[0.09] dark:bg-[#0c0c0c] dark:shadow-[0_30px_100px_rgba(0,0,0,0.75)]"
             >
-              <div className="flex h-[58px] items-center border-b border-white/[0.07] px-4">
+              <div className="flex h-[58px] items-center border-b border-black/[0.07] px-4 dark:border-white/[0.07]">
                 <HugeiconsIcon
                   icon={Search01Icon}
                   size={18}
                   color="currentColor"
                   strokeWidth={1.8}
-                  className="shrink-0 text-white/45"
+                  className="shrink-0 text-black/45 dark:text-white/45"
                 />
 
                 <input
@@ -674,17 +720,17 @@ export default function CustomSidebar() {
                   onChange={(event) => setSearchQuery(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && filteredItems[0]) {
-                      router.push(filteredItems[0].href);
+                      handleItemOpen(filteredItems[0]);
                     }
                   }}
                   placeholder="Search features..."
-                  className="h-full min-w-0 flex-1 bg-transparent px-3 text-[14px] text-white outline-none placeholder:text-white/25"
+                  className="h-full min-w-0 flex-1 bg-transparent px-3 text-[14px] text-black outline-none placeholder:text-black/30 dark:text-white dark:placeholder:text-white/25"
                 />
 
                 <button
                   type="button"
                   onClick={() => setSearchOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-[9px] text-white/35 transition-colors hover:bg-white/[0.05] hover:text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-[9px] text-black/40 transition-colors hover:bg-black/[0.05] hover:text-black dark:text-white/35 dark:hover:bg-white/[0.05] dark:hover:text-white"
                 >
                   <HugeiconsIcon
                     icon={Cancel01Icon}
@@ -703,15 +749,7 @@ export default function CustomSidebar() {
                         key={item.href}
                         item={item}
                         index={index}
-                        onClick={() => {
-                          if (item.section === "Premium") {
-                            setSearchOpen(false);
-                            handlePremiumItem(item.href);
-                            return;
-                          }
-
-                          router.push(item.href);
-                        }}
+                        onClick={() => handleItemOpen(item)}
                       />
                     ))
                   ) : (
@@ -728,7 +766,7 @@ export default function CustomSidebar() {
                       exit={{
                         opacity: 0,
                       }}
-                      className="flex h-[120px] items-center justify-center text-[12px] text-white/30"
+                      className="flex h-[120px] items-center justify-center text-[12px] text-black/35 dark:text-white/30"
                     >
                       No features found.
                     </motion.div>
@@ -736,9 +774,9 @@ export default function CustomSidebar() {
                 </AnimatePresence>
               </div>
 
-              <div className="flex h-[38px] items-center gap-4 border-t border-white/[0.06] px-4 text-[9px] text-white/25">
+              <div className="flex h-[38px] items-center gap-4 border-t border-black/[0.07] px-4 text-[9px] text-black/35 dark:border-white/[0.06] dark:text-white/25">
                 <span className="flex items-center gap-1.5">
-                  <kbd className="rounded border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5">
+                  <kbd className="rounded border border-black/[0.08] bg-black/[0.035] px-1.5 py-0.5 dark:border-white/[0.08] dark:bg-white/[0.035]">
                     ↵
                   </kbd>
 
@@ -746,7 +784,7 @@ export default function CustomSidebar() {
                 </span>
 
                 <span className="flex items-center gap-1.5">
-                  <kbd className="rounded border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5">
+                  <kbd className="rounded border border-black/[0.08] bg-black/[0.035] px-1.5 py-0.5 dark:border-white/[0.08] dark:bg-white/[0.035]">
                     esc
                   </kbd>
 
@@ -788,8 +826,8 @@ function SidebarGroup({
         aria-expanded={open}
         className={`group flex h-[40px] w-full items-center rounded-[10px] px-1.5 text-left transition-colors duration-200 ${
           active
-            ? "bg-white/[0.055] text-white"
-            : "text-white/80 hover:bg-white/[0.025] hover:text-white"
+            ? "bg-black/[0.055] text-black dark:bg-white/[0.055] dark:text-white"
+            : "text-black/80 hover:bg-black/[0.025] hover:text-black dark:text-white/80 dark:hover:bg-white/[0.025] dark:hover:text-white"
         }`}
       >
         <HugeiconsIcon
@@ -799,10 +837,10 @@ function SidebarGroup({
           strokeWidth={1.8}
           className={`shrink-0 transition-colors ${
             premium
-              ? "text-[#ffe600]"
+              ? "text-[#d6bd00] dark:text-[#ffe600]"
               : active
-                ? "text-white"
-                : "text-white/65 group-hover:text-white"
+                ? "text-black dark:text-white"
+                : "text-black/60 group-hover:text-black dark:text-white/65 dark:group-hover:text-white"
           }`}
         />
 
@@ -827,7 +865,7 @@ function SidebarGroup({
             size={13}
             color="currentColor"
             strokeWidth={1.7}
-            className="text-white/30 transition-colors group-hover:text-white/50"
+            className="text-black/35 transition-colors group-hover:text-black/55 dark:text-white/30 dark:group-hover:text-white/50"
           />
         </motion.span>
       </button>
@@ -872,7 +910,7 @@ function SidebarGroup({
                 duration: 0.24,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="ml-[8px] border-l border-white/[0.08] pb-1 pl-[18px]"
+              className="ml-[8px] border-l border-black/[0.1] pb-1 pl-[18px] dark:border-white/[0.08]"
             >
               {children}
             </motion.div>
@@ -888,12 +926,34 @@ function NestedItem({
   href,
   active,
   index,
+  underConstruction = false,
+  onUnderConstruction,
 }: {
   label: string;
   href: string;
   active: boolean;
   index: number;
+  underConstruction?: boolean;
+  onUnderConstruction: () => void;
 }) {
+  const content = (
+    <>
+      {active && (
+        <motion.span
+          layoutId="sidebar-nested-active"
+          className="absolute -left-[19px] h-[16px] w-px rounded-full bg-black/55 dark:bg-white/60"
+          transition={{
+            type: "spring",
+            stiffness: 400,
+            damping: 30,
+          }}
+        />
+      )}
+
+      {label}
+    </>
+  );
+
   return (
     <motion.div
       initial={{
@@ -910,26 +970,30 @@ function NestedItem({
         ease: [0.22, 1, 0.36, 1],
       }}
     >
-      <Link
-        href={href}
-        className={`relative flex h-[30px] items-center text-[11px] font-medium transition-colors duration-150 ${
-          active ? "text-white" : "text-white/35 hover:text-white/75"
-        }`}
-      >
-        {active && (
-          <motion.span
-            layoutId="sidebar-nested-active"
-            className="absolute -left-[19px] h-[16px] w-px rounded-full bg-white/60"
-            transition={{
-              type: "spring",
-              stiffness: 400,
-              damping: 30,
-            }}
-          />
-        )}
-
-        {label}
-      </Link>
+      {underConstruction ? (
+        <button
+          type="button"
+          onClick={onUnderConstruction}
+          className={`relative flex h-[30px] w-full items-center text-left text-[11px] font-medium transition-colors duration-150 ${
+            active
+              ? "text-black dark:text-white"
+              : "text-black/40 hover:text-black/75 dark:text-white/35 dark:hover:text-white/75"
+          }`}
+        >
+          {content}
+        </button>
+      ) : (
+        <Link
+          href={href}
+          className={`relative flex h-[30px] items-center text-[11px] font-medium transition-colors duration-150 ${
+            active
+              ? "text-black dark:text-white"
+              : "text-black/40 hover:text-black/75 dark:text-white/35 dark:hover:text-white/75"
+          }`}
+        >
+          {content}
+        </Link>
+      )}
     </motion.div>
   );
 }
@@ -971,7 +1035,7 @@ function PremiumNestedItem({
         {active && (
           <motion.span
             layoutId="sidebar-premium-nested-active"
-            className="absolute -left-[19px] h-[16px] w-px rounded-full bg-white/60"
+            className="absolute -left-[19px] h-[16px] w-px rounded-full bg-black/55 dark:bg-white/60"
             transition={{
               type: "spring",
               stiffness: 400,
@@ -993,6 +1057,8 @@ function MainItem({
   active,
   premium,
   trailing,
+  underConstruction = false,
+  onUnderConstruction,
 }: {
   label: string;
   href: string;
@@ -1000,16 +1066,17 @@ function MainItem({
   active: boolean;
   premium?: boolean;
   trailing?: React.ReactNode;
+  underConstruction?: boolean;
+  onUnderConstruction?: () => void;
 }) {
-  return (
-    <Link
-      href={href}
-      className={`group flex h-[40px] items-center rounded-[10px] px-1.5 transition-colors duration-150 ${
-        active
-          ? "bg-white/[0.055] text-white"
-          : "text-white/80 hover:bg-white/[0.025] hover:text-white"
-      }`}
-    >
+  const className = `group flex h-[40px] w-full items-center rounded-[10px] px-1.5 text-left transition-colors duration-150 ${
+    active
+      ? "bg-black/[0.055] text-black dark:bg-white/[0.055] dark:text-white"
+      : "text-black/80 hover:bg-black/[0.025] hover:text-black dark:text-white/80 dark:hover:bg-white/[0.025] dark:hover:text-white"
+  }`;
+
+  const content = (
+    <>
       <HugeiconsIcon
         icon={icon}
         size={15}
@@ -1017,10 +1084,10 @@ function MainItem({
         strokeWidth={1.8}
         className={`shrink-0 transition-colors ${
           premium
-            ? "text-[#ffe600]"
+            ? "text-[#d6bd00] dark:text-[#ffe600]"
             : active
-              ? "text-white"
-              : "text-white/65 group-hover:text-white"
+              ? "text-black dark:text-white"
+              : "text-black/60 group-hover:text-black dark:text-white/65 dark:group-hover:text-white"
         }`}
       />
 
@@ -1029,6 +1096,24 @@ function MainItem({
       </span>
 
       {trailing}
+    </>
+  );
+
+  if (underConstruction) {
+    return (
+      <button
+        type="button"
+        onClick={onUnderConstruction}
+        className={className}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={href} className={className}>
+      {content}
     </Link>
   );
 }
@@ -1063,9 +1148,9 @@ function SearchResult({
       }}
       type="button"
       onClick={onClick}
-      className="group flex h-[52px] w-full items-center gap-3 rounded-[13px] px-3 text-left transition-colors hover:bg-white/[0.055]"
+      className="group flex h-[52px] w-full items-center gap-3 rounded-[13px] px-3 text-left transition-colors hover:bg-black/[0.045] dark:hover:bg-white/[0.055]"
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-white/[0.06] bg-white/[0.035] text-white/45 transition-colors group-hover:text-white/80">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-black/[0.08] bg-black/[0.035] text-black/45 transition-colors group-hover:text-black/80 dark:border-white/[0.06] dark:bg-white/[0.035] dark:text-white/45 dark:group-hover:text-white/80">
         <HugeiconsIcon
           icon={item.icon}
           size={15}
@@ -1075,17 +1160,197 @@ function SearchResult({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-white/85">
+        <span className="block truncate text-[13px] font-medium text-black/85 dark:text-white/85">
           {item.label}
         </span>
 
-        <span className="mt-0.5 block truncate text-[10px] text-white/30">
+        <span className="mt-0.5 block truncate text-[10px] text-black/35 dark:text-white/30">
           {item.section}
         </span>
       </span>
 
-      <span className="text-[10px] text-white/20">↵</span>
+      <span className="text-[10px] text-black/25 dark:text-white/20">↵</span>
     </motion.button>
+  );
+}
+
+
+function ThemeModeSelector({
+  theme,
+  resolvedTheme,
+  onThemeChange,
+}: {
+  theme?: string;
+  resolvedTheme?: string;
+  onThemeChange: (theme: "light" | "dark" | "system") => void;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentTheme = mounted ? theme || "system" : "system";
+  const resolved = resolvedTheme === "dark" ? "dark" : "light";
+
+  return (
+    <div className="grid grid-cols-3 gap-1 rounded-[12px] bg-black/[0.045] p-1 dark:bg-black/30">
+      <ThemeOption
+        label="System"
+        active={currentTheme === "system"}
+        onClick={() => onThemeChange("system")}
+        icon={<SystemThemeIcon />}
+      />
+
+      <div className="relative">
+        <ThemeOption
+          label="Light"
+          active={currentTheme === "light"}
+          onClick={() => onThemeChange("light")}
+          icon={<LightThemeIcon />}
+        />
+
+        {mounted && resolved === "dark" && currentTheme !== "light" && (
+          <AnimatedThemeToggler
+            theme="dark"
+            onThemeChange={() => onThemeChange("light")}
+            duration={450}
+            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+          />
+        )}
+      </div>
+
+      <div className="relative">
+        <ThemeOption
+          label="Dark"
+          active={currentTheme === "dark"}
+          onClick={() => onThemeChange("dark")}
+          icon={<DarkThemeIcon />}
+        />
+
+        {mounted && resolved === "light" && currentTheme !== "dark" && (
+          <AnimatedThemeToggler
+            theme="light"
+            onThemeChange={() => onThemeChange("dark")}
+            duration={450}
+            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThemeOption({
+  label,
+  active,
+  onClick,
+  icon,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex h-[46px] w-full flex-col items-center justify-center gap-1 rounded-[10px] text-[9px] font-semibold transition-colors ${
+        active
+          ? "bg-[#2832F9]/10 text-[#2832F9] dark:bg-[#2832F9]/20 dark:text-[#7c83ff]"
+          : "text-black/40 hover:bg-black/[0.04] hover:text-black/70 dark:text-white/40 dark:hover:bg-white/[0.04] dark:hover:text-white/70"
+      }`}
+    >
+      <span
+        className={`flex h-[17px] items-center justify-center ${
+          active
+            ? "text-[#2832F9] dark:text-[#7c83ff]"
+            : "text-black/35 dark:text-white/35"
+        }`}
+      >
+        {icon}
+      </span>
+
+      {label}
+    </button>
+  );
+}
+
+function SystemThemeIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8" />
+      <path d="M12 16v4" />
+    </svg>
+  );
+}
+
+function LightThemeIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.42 1.42" />
+      <path d="m17.65 17.65 1.42 1.42" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.35 17.65-1.42 1.42" />
+      <path d="m19.07 4.93-1.42 1.42" />
+    </svg>
+  );
+}
+
+function DarkThemeIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <path d="M20.5 14.1A8.4 8.4 0 0 1 9.9 3.5a8.6 8.6 0 1 0 10.6 10.6Z" />
+    </svg>
+  );
+}
+
+function HelpIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-black/55 dark:text-white/65"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.75 9a2.35 2.35 0 1 1 3.7 1.92c-.86.62-1.45 1.04-1.45 2.08" />
+      <path d="M12 17h.01" />
+    </svg>
   );
 }
 
@@ -1100,13 +1365,13 @@ function UserAvatar({
 }) {
   if (loading) {
     return (
-      <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-white/[0.07]" />
+      <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-black/[0.07] dark:bg-white/[0.07]" />
     );
   }
 
   if (avatar) {
     return (
-      <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.04]">
+      <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-black/[0.08] bg-black/[0.04] dark:border-white/[0.08] dark:bg-white/[0.04]">
         <img
           src={avatar}
           alt={displayName || "User"}
@@ -1119,7 +1384,7 @@ function UserAvatar({
   const initial = displayName?.charAt(0)?.toUpperCase() || "U";
 
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-[#151515] text-[11px] font-semibold text-white/70">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.05] text-[11px] font-semibold text-black/70 dark:border-white/[0.08] dark:bg-[#151515] dark:text-white/70">
       {initial}
     </span>
   );

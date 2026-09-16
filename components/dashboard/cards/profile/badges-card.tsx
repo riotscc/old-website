@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import SaveBar from "@/components/custom/savebar";
 import { AnimatePresence, motion } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Globe02Icon } from "@hugeicons/core-free-icons";
@@ -23,6 +24,7 @@ type Badge = {
 };
 
 type AssignedBadge = {
+  badgeId?: string;
   badgeImage: string;
   badgeName: string;
   badgeRoleID: string;
@@ -33,7 +35,37 @@ type BadgesResponse = {
   badges?: AssignedBadge[];
 };
 
+type BadgeSettings = {
+  equippedBadges: string[];
+  monochromeBadges: boolean;
+  badgeColor: string;
+  badgeContainerEnabled: boolean;
+  badgeLoopEnabled: boolean;
+  badgeGlowEnabled: boolean;
+};
+
+type BadgeSettingsResponse = {
+  success?: boolean;
+  user?: CurrentUser;
+  settings?: Partial<BadgeSettings>;
+  error?: string;
+};
+
 const badges: Badge[] = [
+  {
+    id: "official",
+    name: "Carts.lol Official",
+    description: "Reserved for members of the carts.lol ownership team.",
+    requirement: "An Owner of Carts.lol",
+    image: "/images/badges/owners.png",
+  },
+  {
+    id: "manager",
+    name: "Manager",
+    description: "Reserved for members of the carts.lol management team.",
+    requirement: "Manager only",
+    image: "/images/badges/manager.png",
+  },
   {
     id: "staff",
     name: "Staff",
@@ -102,11 +134,28 @@ const badges: Badge[] = [
 const dominantColorCache = new Map<string, string>();
 
 function normalizeBadgeName(name: string) {
-  return name
+  const normalized = name
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+  if (normalized === "carts-lol-official") {
+    return "official";
+  }
+
+  return normalized;
+}
+
+function getAssignedBadgeId(badge: AssignedBadge) {
+  if (
+    typeof badge.badgeId === "string" &&
+    badge.badgeId.trim()
+  ) {
+    return badge.badgeId.trim().toLowerCase();
+  }
+
+  return normalizeBadgeName(badge.badgeName);
 }
 
 function getDominantColor(src: string): Promise<string> {
@@ -246,6 +295,7 @@ function getDominantColor(src: string): Promise<string> {
 
 export default function BadgesCard() {
   const [user, setUser] = React.useState<CurrentUser | null>(null);
+  const [refreshingBadges, setRefreshingBadges] = React.useState(false);
   const [loadingUser, setLoadingUser] = React.useState(true);
   const [loadingBadges, setLoadingBadges] = React.useState(true);
   const [assignedBadges, setAssignedBadges] = React.useState<AssignedBadge[]>(
@@ -257,81 +307,247 @@ export default function BadgesCard() {
   const [marquee, setMarquee] = React.useState(false);
   const [badgeColor, setBadgeColor] = React.useState("#ffffff");
   const [enabledBadges, setEnabledBadges] = React.useState<string[]>([]);
+  const [savedSettings, setSavedSettings] =
+    React.useState<BadgeSettings | null>(null);
+  const [savingSettings, setSavingSettings] = React.useState(false);
   const [visibleBadgeCount, setVisibleBadgeCount] = React.useState(0);
   const [loopPhase, setLoopPhase] = React.useState<"removing" | "adding">(
     "removing"
   );
 
+  const currentSettings = React.useMemo<BadgeSettings>(
+    () => ({
+      equippedBadges: enabledBadges,
+      monochromeBadges: monochrome,
+      badgeColor,
+      badgeContainerEnabled: showPill,
+      badgeLoopEnabled: marquee,
+      badgeGlowEnabled: softGlow,
+    }),
+    [
+      enabledBadges,
+      monochrome,
+      badgeColor,
+      showPill,
+      marquee,
+      softGlow,
+    ]
+  );
+
+  const hasUnsavedChanges = React.useMemo(() => {
+    if (!savedSettings) {
+      return false;
+    }
+
+    return (
+      JSON.stringify(currentSettings) !==
+      JSON.stringify(savedSettings)
+    );
+  }, [currentSettings, savedSettings]);
+
   React.useEffect(() => {
     let mounted = true;
 
-    async function loadUser() {
+    async function load() {
       try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
+        const [badgesResponse, settingsResponse] = await Promise.all([
+          fetch("/api/badges", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/account/badges", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
 
-        if (!response.ok) {
-          return;
-        }
-
-        const data = await response.json();
+        const badgesData = badgesResponse.ok
+          ? ((await badgesResponse.json()) as BadgesResponse)
+          : null;
+        const settingsData = settingsResponse.ok
+          ? ((await settingsResponse.json()) as BadgeSettingsResponse)
+          : null;
 
         if (!mounted) {
           return;
         }
 
-        if (data?.user) {
-          setUser(data.user);
+        const nextAssignedBadges = Array.isArray(badgesData?.badges)
+          ? badgesData.badges
+          : [];
+
+        setAssignedBadges(nextAssignedBadges);
+
+        if (settingsData?.user) {
+          setUser(settingsData.user);
+        }
+
+        if (settingsData?.settings) {
+          const owned = new Set(
+            nextAssignedBadges.map((badge) =>
+              getAssignedBadgeId(badge)
+            )
+          );
+
+          const nextSettings: BadgeSettings = {
+            equippedBadges: Array.isArray(
+              settingsData.settings.equippedBadges
+            )
+              ? settingsData.settings.equippedBadges.filter(
+                  (badge) =>
+                    typeof badge === "string" &&
+                    owned.has(badge)
+                )
+              : [],
+            monochromeBadges: Boolean(
+              settingsData.settings.monochromeBadges
+            ),
+            badgeColor:
+              typeof settingsData.settings.badgeColor === "string"
+                ? settingsData.settings.badgeColor
+                : "#ffffff",
+            badgeContainerEnabled: Boolean(
+              settingsData.settings.badgeContainerEnabled
+            ),
+            badgeLoopEnabled: Boolean(
+              settingsData.settings.badgeLoopEnabled
+            ),
+            badgeGlowEnabled:
+              settingsData.settings.badgeGlowEnabled !== false,
+          };
+
+          setEnabledBadges(nextSettings.equippedBadges);
+          setMonochrome(nextSettings.monochromeBadges);
+          setBadgeColor(nextSettings.badgeColor);
+          setShowPill(nextSettings.badgeContainerEnabled);
+          setMarquee(nextSettings.badgeLoopEnabled);
+          setSoftGlow(nextSettings.badgeGlowEnabled);
+          setSavedSettings(nextSettings);
         }
       } catch {
       } finally {
         if (mounted) {
           setLoadingUser(false);
-        }
-      }
-    }
-
-    async function loadBadges() {
-      try {
-        const response = await fetch("/api/badges", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const data = (await response.json()) as BadgesResponse;
-
-        if (!mounted) {
-          return;
-        }
-
-        setAssignedBadges(Array.isArray(data.badges) ? data.badges : []);
-      } catch {
-      } finally {
-        if (mounted) {
           setLoadingBadges(false);
         }
       }
     }
 
-    loadUser();
-    loadBadges();
+    void load();
 
     return () => {
       mounted = false;
     };
   }, []);
 
+  async function handleSaveSettings() {
+    if (
+      !savedSettings ||
+      !hasUnsavedChanges ||
+      savingSettings
+    ) {
+      return;
+    }
+
+    try {
+      setSavingSettings(true);
+
+      const response = await fetch("/api/account/badges", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          settings: currentSettings,
+        }),
+      });
+
+      const data = (await response.json()) as BadgeSettingsResponse;
+
+      if (!response.ok || !data.success || !data.settings) {
+        return;
+      }
+
+      const nextSettings: BadgeSettings = {
+        equippedBadges: Array.isArray(data.settings.equippedBadges)
+          ? data.settings.equippedBadges
+          : [],
+        monochromeBadges: Boolean(
+          data.settings.monochromeBadges
+        ),
+        badgeColor:
+          typeof data.settings.badgeColor === "string"
+            ? data.settings.badgeColor
+            : "#ffffff",
+        badgeContainerEnabled: Boolean(
+          data.settings.badgeContainerEnabled
+        ),
+        badgeLoopEnabled: Boolean(
+          data.settings.badgeLoopEnabled
+        ),
+        badgeGlowEnabled:
+          data.settings.badgeGlowEnabled !== false,
+      };
+
+      setEnabledBadges(nextSettings.equippedBadges);
+      setMonochrome(nextSettings.monochromeBadges);
+      setBadgeColor(nextSettings.badgeColor);
+      setShowPill(nextSettings.badgeContainerEnabled);
+      setMarquee(nextSettings.badgeLoopEnabled);
+      setSoftGlow(nextSettings.badgeGlowEnabled);
+      setSavedSettings(nextSettings);
+    } catch {
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  function handleUndoSettings() {
+    if (!savedSettings || savingSettings) {
+      return;
+    }
+
+    setEnabledBadges(savedSettings.equippedBadges);
+    setMonochrome(savedSettings.monochromeBadges);
+    setBadgeColor(savedSettings.badgeColor);
+    setShowPill(savedSettings.badgeContainerEnabled);
+    setMarquee(savedSettings.badgeLoopEnabled);
+    setSoftGlow(savedSettings.badgeGlowEnabled);
+  }
+
+  async function refreshBadges() {
+    if (refreshingBadges) {
+      return;
+    }
+
+    try {
+      setRefreshingBadges(true);
+
+      const response = await fetch("/api/badges", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as BadgesResponse;
+
+      setAssignedBadges(Array.isArray(data.badges) ? data.badges : []);
+    } catch {
+    } finally {
+      setRefreshingBadges(false);
+    }
+  }
+
   const ownedBadges = React.useMemo(() => {
     return new Set(
-      assignedBadges.map((badge) => normalizeBadgeName(badge.badgeName))
+      assignedBadges.map((badge) => getAssignedBadgeId(badge))
     );
   }, [assignedBadges]);
 
@@ -412,7 +628,8 @@ export default function BadgesCard() {
   const loading = loadingUser || loadingBadges;
 
   return (
-    <motion.div
+    <>
+      <motion.div
       initial={{
         opacity: 0,
         y: 8,
@@ -425,39 +642,50 @@ export default function BadgesCard() {
         duration: 0.35,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="w-full"
+      className="w-full pt-5 text-[#111111] dark:text-white"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] font-medium">
-          <span className="text-white/30">Dashboard</span>
-          <span className="text-white/20">›</span>
-          <span className="text-white/30">Account</span>
-          <span className="text-white/20">›</span>
-          <span className="text-white/80">Badges</span>
+          <span className="text-black/35 dark:text-white/30">Dashboard</span>
+          <span className="text-black/25 dark:text-white/20">›</span>
+          <span className="text-black/35 dark:text-white/30">Account</span>
+          <span className="text-black/25 dark:text-white/20">›</span>
+          <span className="text-black/80 dark:text-white/80">Badges</span>
         </div>
 
-        <Link
-          href={user?.username ? `/${user.username}` : "/"}
-          target="_blank"
-          className="flex h-9 items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.025] px-4 text-[11px] font-semibold text-white/55 transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.05] hover:text-white"
-        >
-          <HugeiconsIcon
-            icon={Globe02Icon}
-            size={14}
-            color="currentColor"
-            strokeWidth={1.7}
-          />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void refreshBadges()}
+            disabled={refreshingBadges}
+            className="flex h-9 items-center rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-[11px] font-semibold text-black/55 transition-all duration-200 hover:border-black/[0.14] hover:bg-black/[0.05] hover:text-black disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.075] dark:bg-white/[0.025] dark:text-white/55 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05] dark:hover:text-white"
+          >
+            {refreshingBadges ? "Refreshing..." : "Refresh badges"}
+          </button>
 
-          Live preview
-        </Link>
+          <Link
+            href={user?.username ? `/${user.username}` : "/"}
+            target="_blank"
+            className="flex h-9 items-center gap-2 rounded-full border border-black/[0.08] bg-black/[0.025] px-4 text-[11px] font-semibold text-black/55 transition-all duration-200 hover:border-black/[0.14] hover:bg-black/[0.05] hover:text-black dark:border-white/[0.075] dark:bg-white/[0.025] dark:text-white/55 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05] dark:hover:text-white"
+          >
+            <HugeiconsIcon
+              icon={Globe02Icon}
+              size={14}
+              color="currentColor"
+              strokeWidth={1.7}
+            />
+
+            Live preview
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6">
-        <h1 className="text-[22px] font-semibold tracking-[-0.7px] text-white">
+        <h1 className="text-[22px] font-semibold tracking-[-0.7px] text-[#111111] dark:text-white">
           Badges
         </h1>
 
-        <p className="mt-1 text-[12px] text-white/35">
+        <p className="mt-1 text-[12px] text-black/45 dark:text-white/35">
           Customize how your badges appear on your profile.
         </p>
       </div>
@@ -467,7 +695,7 @@ export default function BadgesCard() {
           <div />
         </div>
 
-        <div className="mt-4 rounded-[20px] border border-white/[0.065] bg-[#0c0c0c] p-5">
+        <div className="mt-4 rounded-[20px] border border-black/[0.08] bg-white p-5 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
           <div className="grid gap-4 xl:grid-cols-2">
             <SettingBlock label="Monochrome badges">
               <SettingRow
@@ -479,9 +707,9 @@ export default function BadgesCard() {
             </SettingBlock>
 
             <SettingBlock label="Badge color">
-              <div className="flex h-[52px] items-center gap-3 rounded-[14px] border border-white/[0.055] bg-black/15 px-4">
+              <div className="flex h-[52px] items-center gap-3 rounded-[14px] border border-black/[0.08] bg-black/[0.02] px-4 dark:border-white/[0.055] dark:bg-black/15">
                 <label
-                  className="relative h-5 w-5 shrink-0 cursor-pointer overflow-hidden rounded-full border border-white/[0.12]"
+                  className="relative h-5 w-5 shrink-0 cursor-pointer overflow-hidden rounded-full border border-black/[0.14] dark:border-white/[0.12]"
                   style={{
                     backgroundColor: badgeColor,
                   }}
@@ -498,10 +726,10 @@ export default function BadgesCard() {
                   value={badgeColor}
                   onChange={(event) => setBadgeColor(event.target.value)}
                   maxLength={7}
-                  className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-white/70 outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-black/70 outline-none dark:text-white/70"
                 />
 
-                <span className="text-[9px] font-medium text-white/20">
+                <span className="text-[9px] font-medium text-black/30 dark:text-white/20">
                   HEX
                 </span>
               </div>
@@ -540,25 +768,25 @@ export default function BadgesCard() {
       <div className="mt-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-[16px] font-semibold tracking-[-0.4px] text-white">
+            <h2 className="text-[16px] font-semibold tracking-[-0.4px] text-[#111111] dark:text-white">
               Preview
             </h2>
 
-            <p className="mt-1 text-[10px] text-white/30">
+            <p className="mt-1 text-[10px] text-black/40 dark:text-white/30">
               See how your enabled badges will look on your profile.
             </p>
           </div>
         </div>
 
-        <div className="mt-4 rounded-[20px] border border-white/[0.065] bg-[#0c0c0c]">
+        <div className="mt-4 rounded-[20px] border border-black/[0.08] bg-white dark:border-white/[0.065] dark:bg-[#0c0c0c]">
           <div className="flex min-h-[150px] items-center justify-center overflow-hidden px-6 py-6">
             {previewBadges.length === 0 ? (
               <div className="text-center">
-                <p className="text-[11px] font-medium text-white/30">
+                <p className="text-[11px] font-medium text-black/35 dark:text-white/30">
                   No badges enabled
                 </p>
 
-                <p className="mt-1 text-[9px] text-white/20">
+                <p className="mt-1 text-[9px] text-black/30 dark:text-white/20">
                   Turn on an unlocked badge below to preview it here.
                 </p>
               </div>
@@ -611,7 +839,7 @@ export default function BadgesCard() {
                       repeat: Infinity,
                       times: [0, 0.45, 0.5, 1],
                     }}
-                    className="h-6 w-[2px] shrink-0 rounded-full bg-white/45"
+                    className="h-6 w-[2px] shrink-0 rounded-full bg-black/35 dark:bg-white/45"
                   />
                 )}
               </div>
@@ -623,17 +851,17 @@ export default function BadgesCard() {
       <div className="mt-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-[16px] font-semibold tracking-[-0.4px] text-white">
+            <h2 className="text-[16px] font-semibold tracking-[-0.4px] text-[#111111] dark:text-white">
               All badges
             </h2>
 
-            <p className="mt-1 text-[10px] text-white/30">
+            <p className="mt-1 text-[10px] text-black/40 dark:text-white/30">
               Badges are unlocked through account status and community roles.
             </p>
           </div>
 
           {!loading && (
-            <span className="text-[10px] font-medium text-white/25">
+            <span className="text-[10px] font-medium text-black/35 dark:text-white/25">
               {ownedBadges.size} unlocked
             </span>
           )}
@@ -665,9 +893,9 @@ export default function BadgesCard() {
                 className={`group relative flex min-h-[82px] w-full items-center rounded-[18px] border px-5 text-left transition-all duration-200 ${
                   owned
                     ? enabled
-                      ? "border-[#5360ff]/25 bg-[#5360ff]/[0.055] hover:bg-[#5360ff]/[0.075]"
-                      : "border-white/[0.065] bg-[#0c0c0c] hover:border-white/[0.11] hover:bg-white/[0.02]"
-                    : "cursor-default border-white/[0.05] bg-[#0a0a0a]"
+                      ? "border-[#5360ff]/30 bg-[#5360ff]/[0.06] hover:bg-[#5360ff]/[0.09] dark:border-[#5360ff]/25 dark:bg-[#5360ff]/[0.055] dark:hover:bg-[#5360ff]/[0.075]"
+                      : "border-black/[0.08] bg-white hover:border-black/[0.14] hover:bg-black/[0.02] dark:border-white/[0.065] dark:bg-[#0c0c0c] dark:hover:border-white/[0.11] dark:hover:bg-white/[0.02]"
+                    : "cursor-default border-black/[0.06] bg-black/[0.015] dark:border-white/[0.05] dark:bg-[#0a0a0a]"
                 }`}
               >
                 <div
@@ -688,7 +916,7 @@ export default function BadgesCard() {
                   <div className="flex items-center gap-2">
                     <p
                       className={`truncate text-[11px] font-semibold ${
-                        owned ? "text-white/85" : "text-white/35"
+                        owned ? "text-black/85 dark:text-white/85" : "text-black/35 dark:text-white/35"
                       }`}
                     >
                       {badge.name}
@@ -701,14 +929,14 @@ export default function BadgesCard() {
 
                   <p
                     className={`mt-1 truncate text-[9px] ${
-                      owned ? "text-white/25" : "text-white/15"
+                      owned ? "text-black/35 dark:text-white/25" : "text-black/20 dark:text-white/15"
                     }`}
                   >
                     {badge.description}
                   </p>
 
                   {!owned && (
-                    <p className="mt-1 text-[8px] font-medium text-white/15">
+                    <p className="mt-1 text-[8px] font-medium text-black/20 dark:text-white/15">
                       {badge.requirement}
                     </p>
                   )}
@@ -726,7 +954,15 @@ export default function BadgesCard() {
           })}
         </div>
       </div>
-    </motion.div>
+      </motion.div>
+
+      <SaveBar
+        open={hasUnsavedChanges}
+        saving={savingSettings}
+        onUndo={handleUndoSettings}
+        onSave={() => void handleSaveSettings()}
+      />
+    </>
   );
 }
 
@@ -739,7 +975,7 @@ function SettingBlock({
 }) {
   return (
     <div>
-      <p className="mb-2 text-[9px] font-semibold text-white/30">
+      <p className="mb-2 text-[9px] font-semibold text-black/40 dark:text-white/30">
         {label}
       </p>
       {children}
@@ -762,14 +998,14 @@ function SettingRow({
     <button
       type="button"
       onClick={onChange}
-      className="flex min-h-[52px] w-full items-center gap-4 rounded-[14px] border border-white/[0.055] bg-black/15 px-4 text-left transition-colors hover:bg-white/[0.02]"
+      className="flex min-h-[52px] w-full items-center gap-4 rounded-[14px] border border-black/[0.08] bg-black/[0.02] px-4 text-left transition-colors hover:bg-black/[0.04] dark:border-white/[0.055] dark:bg-black/15 dark:hover:bg-white/[0.02]"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold text-white/70">
+        <p className="text-[10px] font-semibold text-black/70 dark:text-white/70">
           {title}
         </p>
 
-        <p className="mt-0.5 truncate text-[8px] text-white/20">
+        <p className="mt-0.5 truncate text-[8px] text-black/30 dark:text-white/20">
           {description}
         </p>
       </div>
@@ -786,7 +1022,7 @@ function Toggle({ enabled }: { enabled: boolean }) {
       className={`relative block h-[22px] w-[38px] shrink-0 overflow-hidden rounded-full border transition-all duration-200 ${
         enabled
           ? "border-[#5360ff]/50 bg-[#2832F9]"
-          : "border-white/[0.08] bg-[#1a1a1a]"
+          : "border-black/[0.12] bg-black/[0.12] dark:border-white/[0.08] dark:bg-[#1a1a1a]"
       }`}
     >
       <span
@@ -800,14 +1036,14 @@ function Toggle({ enabled }: { enabled: boolean }) {
 
 function LockedIcon() {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.055] bg-white/[0.02]">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-black/[0.025] dark:border-white/[0.055] dark:bg-white/[0.02]">
       <svg
         width="12"
         height="12"
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-white/20"
+        className="text-black/25 dark:text-white/20"
       >
         <path
           d="M7 10V8C7 5.23858 9.23858 3 12 3C14.7614 3 17 5.23858 17 8V10"
@@ -861,7 +1097,7 @@ function ProfileBadge({
     <div
       className={`relative flex shrink-0 items-center gap-2 ${
         pill
-          ? "rounded-full border border-white/[0.07] bg-white/[0.035] px-3 py-2"
+          ? "rounded-full border border-black/[0.08] bg-black/[0.03] px-3 py-2 dark:border-white/[0.07] dark:bg-white/[0.035]"
           : ""
       }`}
     >
@@ -911,7 +1147,7 @@ function ProfileBadge({
       </span>
 
       {pill && (
-        <span className="relative z-10 text-[9px] font-semibold text-white/70">
+        <span className="relative z-10 text-[9px] font-semibold text-black/70 dark:text-white/70">
           {badge.name}
         </span>
       )}
