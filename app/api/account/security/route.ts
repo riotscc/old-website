@@ -21,19 +21,33 @@ function getApiUrl() {
 async function getAuthenticatedUserId(
   request: NextRequest
 ) {
+  const session =
+    request.cookies.get("session")?.value
+
+  if (!session) {
+    return null
+  }
+
   const response = await fetch(
     `${getApiUrl()}/v1/bootstrap`,
     {
       method: "GET",
       headers: {
-        cookie:
-          request.headers.get("cookie") || "",
+        cookie: `session=${encodeURIComponent(
+          session
+        )}`,
       },
       cache: "no-store",
     }
   )
 
   if (!response.ok) {
+    console.error(
+      "SECURITY_AUTH_ERROR:",
+      response.status,
+      await response.text()
+    )
+
     return null
   }
 
