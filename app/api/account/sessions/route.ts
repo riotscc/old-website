@@ -8,35 +8,62 @@ function getApiUrl() {
   ).replace(/\/$/, "")
 }
 
-export async function GET(request: NextRequest) {
+function getApiKey() {
   const apiKey = process.env.API_KEY
 
   if (!apiKey) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "API_KEY is missing from the frontend environment.",
-      },
-      {
-        status: 500,
-      }
+    throw new Error(
+      "API_KEY is missing from the frontend environment."
     )
   }
 
+  return apiKey
+}
+
+function getSessionCookie(request: NextRequest) {
+  const session =
+    request.cookies.get("session")?.value
+
+  if (!session) {
+    return null
+  }
+
+  return `session=${encodeURIComponent(session)}`
+}
+
+export async function GET(
+  request: NextRequest
+) {
   try {
+    const sessionCookie =
+      getSessionCookie(request)
+
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
     const response = await fetch(
       `${getApiUrl()}/v1/account/sessions`,
       {
         method: "GET",
         headers: {
-          "x-api-key": apiKey,
-          cookie: request.headers.get("cookie") || "",
+          "x-api-key": getApiKey(),
+          cookie: sessionCookie,
         },
         cache: "no-store",
       }
     )
 
-    const text = await response.text()
+    const text =
+      await response.text()
 
     console.log(
       "Sessions API:",
@@ -48,7 +75,9 @@ export async function GET(request: NextRequest) {
       status: response.status,
       headers: {
         "Content-Type":
-          response.headers.get("content-type") ||
+          response.headers.get(
+            "content-type"
+          ) ||
           "application/json",
       },
     })
@@ -73,29 +102,33 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  const apiKey = process.env.API_KEY
-
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "API_KEY is missing from the frontend environment.",
-      },
-      {
-        status: 500,
-      }
-    )
-  }
-
+export async function DELETE(
+  request: NextRequest
+) {
   try {
-    const body = await request.json()
+    const sessionCookie =
+      getSessionCookie(request)
+
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    const body =
+      await request.json()
 
     const endpoint =
       body.others === true
         ? `${getApiUrl()}/v1/account/sessions/others`
         : `${getApiUrl()}/v1/account/sessions/${encodeURIComponent(
-            body.id
+            String(body.id || "")
           )}`
 
     const response = await fetch(
@@ -103,14 +136,15 @@ export async function DELETE(request: NextRequest) {
       {
         method: "DELETE",
         headers: {
-          "x-api-key": apiKey,
-          cookie: request.headers.get("cookie") || "",
+          "x-api-key": getApiKey(),
+          cookie: sessionCookie,
         },
         cache: "no-store",
       }
     )
 
-    const text = await response.text()
+    const text =
+      await response.text()
 
     console.log(
       "Sessions DELETE API:",
@@ -122,7 +156,9 @@ export async function DELETE(request: NextRequest) {
       status: response.status,
       headers: {
         "Content-Type":
-          response.headers.get("content-type") ||
+          response.headers.get(
+            "content-type"
+          ) ||
           "application/json",
       },
     })
