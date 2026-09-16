@@ -1,37 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectPostgres from "@/lib/postgres";
-import {
-  getUserByDiscordId,
-  getUserById,
-  getUserByUsername,
-} from "@/database/queries/users";
 
 const pool = connectPostgres();
 
-type AuthMeResponse = {
-  authenticated?: boolean;
+type AuthenticatedUser = {
+  id: string;
+  username: string;
+  globalName: string | null;
+  plan: string;
+};
+
+type BootstrapResponse = {
   user?: {
     id?: string;
     username?: string;
+    globalName?: string | null;
   } | null;
+  plan?: string;
 };
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
-}
+function getApiUrl() {
+  const value =
+    process.env.API_URL ||
+    process.env.NEXT_PUBLIC_API_URL;
 
-function getInternalAppUrl() {
-  const port =
-    process.env.PORT || "3000";
+  if (!value) {
+    throw new Error("API_URL is not configured");
+  }
 
-  return `http://127.0.0.1:${port}`;
+  return value.replace(/\/$/, "");
 }
 
 async function getAuthenticatedUser(
   request: NextRequest
-) {
+): Promise<AuthenticatedUser | null> {
   const session =
     request.cookies.get("session")?.value;
 
@@ -39,61 +41,51 @@ async function getAuthenticatedUser(
     return null;
   }
 
-  const authResponse = await fetch(
-    `${getInternalAppUrl()}/api/auth/me`,
+  const headers: Record<string, string> = {
+    cookie: `session=${encodeURIComponent(session)}`,
+  };
+
+  if (process.env.API_KEY) {
+    headers["x-api-key"] =
+      process.env.API_KEY;
+  }
+
+  const response = await fetch(
+    `${getApiUrl()}/v1/bootstrap`,
     {
       method: "GET",
-      headers: {
-        cookie: `session=${encodeURIComponent(
-          session
-        )}`,
-      },
+      headers,
       cache: "no-store",
     }
   );
 
-  if (!authResponse.ok) {
+  if (!response.ok) {
+    console.error(
+      "ALIASES_AUTH_ERROR:",
+      response.status,
+      await response.text()
+    );
+
     return null;
   }
 
-  const authData =
-    (await authResponse.json()) as AuthMeResponse;
-
-  const authUser = authData.user;
-
-  if (!authUser) {
-    return null;
-  }
-
-  let user = null;
-
-  if (authUser.id) {
-    if (isUuid(authUser.id)) {
-      user =
-        await getUserById(
-          authUser.id
-        );
-    }
-
-    if (!user) {
-      user =
-        await getUserByDiscordId(
-          authUser.id
-        );
-    }
-  }
+  const data =
+    (await response.json()) as BootstrapResponse;
 
   if (
-    !user &&
-    authUser.username
+    !data.user?.id ||
+    !data.user.username
   ) {
-    user =
-      await getUserByUsername(
-        authUser.username
-      );
+    return null;
   }
 
-  return user;
+  return {
+    id: data.user.id,
+    username: data.user.username,
+    globalName:
+      data.user.globalName ?? null,
+    plan: data.plan || "free",
+  };
 }
 
 export async function GET(
@@ -506,7 +498,7 @@ export async function POST(
       };
 
     if (
-      postgresError?.code ===
+      postgresError.code ===
       "23505"
     ) {
       return NextResponse.json(
