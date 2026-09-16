@@ -20,19 +20,33 @@ function getApiUrl() {
 async function getAuthenticatedUserId(
   request: NextRequest
 ) {
+  const session =
+    request.cookies.get("session")?.value
+
+  if (!session) {
+    return null
+  }
+
   const response = await fetch(
     `${getApiUrl()}/v1/bootstrap`,
     {
       method: "GET",
       headers: {
-        cookie:
-          request.headers.get("cookie") || "",
+        cookie: `session=${encodeURIComponent(
+          session
+        )}`,
       },
       cache: "no-store",
     }
   )
 
   if (!response.ok) {
+    console.error(
+      "PROFILE_AUTH_ERROR:",
+      response.status,
+      await response.text()
+    )
+
     return null
   }
 
@@ -69,7 +83,9 @@ export async function PATCH(
 
     const username =
       typeof body.username === "string"
-        ? body.username.trim().toLowerCase()
+        ? body.username
+            .trim()
+            .toLowerCase()
         : ""
 
     const displayName =
@@ -198,8 +214,10 @@ export async function PATCH(
         username: user.username,
         displayName:
           user.global_name || "",
-        avatar: user.avatar || null,
-        plan: user.plan || "free",
+        avatar:
+          user.avatar || null,
+        plan:
+          user.plan || "free",
       },
     })
   } catch (error: any) {
