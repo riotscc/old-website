@@ -22,13 +22,31 @@ function isUuid(value: string) {
   );
 }
 
-async function getAuthenticatedUser(request: NextRequest) {
+function getInternalAppUrl() {
+  const port =
+    process.env.PORT || "3000";
+
+  return `http://127.0.0.1:${port}`;
+}
+
+async function getAuthenticatedUser(
+  request: NextRequest
+) {
+  const session =
+    request.cookies.get("session")?.value;
+
+  if (!session) {
+    return null;
+  }
+
   const authResponse = await fetch(
-    new URL("/api/auth/me", request.url),
+    `${getInternalAppUrl()}/api/auth/me`,
     {
       method: "GET",
       headers: {
-        cookie: request.headers.get("cookie") || "",
+        cookie: `session=${encodeURIComponent(
+          session
+        )}`,
       },
       cache: "no-store",
     }
@@ -38,7 +56,9 @@ async function getAuthenticatedUser(request: NextRequest) {
     return null;
   }
 
-  const authData = (await authResponse.json()) as AuthMeResponse;
+  const authData =
+    (await authResponse.json()) as AuthMeResponse;
+
   const authUser = authData.user;
 
   if (!authUser) {
@@ -48,23 +68,42 @@ async function getAuthenticatedUser(request: NextRequest) {
   let user = null;
 
   if (authUser.id) {
-    user = await getUserByDiscordId(authUser.id);
+    if (isUuid(authUser.id)) {
+      user =
+        await getUserById(
+          authUser.id
+        );
+    }
 
-    if (!user && isUuid(authUser.id)) {
-      user = await getUserById(authUser.id);
+    if (!user) {
+      user =
+        await getUserByDiscordId(
+          authUser.id
+        );
     }
   }
 
-  if (!user && authUser.username) {
-    user = await getUserByUsername(authUser.username);
+  if (
+    !user &&
+    authUser.username
+  ) {
+    user =
+      await getUserByUsername(
+        authUser.username
+      );
   }
 
   return user;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest
+) {
   try {
-    const user = await getAuthenticatedUser(request);
+    const user =
+      await getAuthenticatedUser(
+        request
+      );
 
     if (!user) {
       return NextResponse.json(
@@ -90,7 +129,10 @@ export async function GET(request: NextRequest) {
       [user.id]
     );
 
-    const [aliasesResult, dataResult] = await Promise.all([
+    const [
+      aliasesResult,
+      dataResult,
+    ] = await Promise.all([
       pool.query(
         `
         SELECT
@@ -116,31 +158,47 @@ export async function GET(request: NextRequest) {
     ]);
 
     const isPremium =
-      String(user.plan || "free")
+      String(
+        user.plan || "free"
+      )
         .trim()
-        .toLowerCase() === "premium";
+        .toLowerCase() ===
+      "premium";
 
     return NextResponse.json({
       success: true,
-      aliases: aliasesResult.rows.map((row) => ({
-        id: String(row.id),
-        username: String(row.alias),
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      })),
+      aliases:
+        aliasesResult.rows.map(
+          (row) => ({
+            id: String(row.id),
+            username: String(
+              row.alias
+            ),
+            createdAt:
+              row.created_at,
+            updatedAt:
+              row.updated_at,
+          })
+        ),
       aliasTokens: Number(
-        dataResult.rows[0]?.alias_tokens ?? 0
+        dataResult.rows[0]
+          ?.alias_tokens ?? 0
       ),
-      maxSlots: isPremium ? 10 : 5,
+      maxSlots:
+        isPremium ? 10 : 5,
       isPremium,
     });
   } catch (error) {
-    console.error("ALIASES_GET_ERROR:", error);
+    console.error(
+      "ALIASES_GET_ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to load aliases.",
+        error:
+          "Failed to load aliases.",
       },
       {
         status: 500,
@@ -149,11 +207,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  const client = await pool.connect();
+export async function POST(
+  request: NextRequest
+) {
+  const client =
+    await pool.connect();
+
+  let transactionStarted =
+    false;
 
   try {
-    const user = await getAuthenticatedUser(request);
+    const user =
+      await getAuthenticatedUser(
+        request
+      );
 
     if (!user) {
       return NextResponse.json(
@@ -167,14 +234,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const alias =
-      typeof body?.username === "string"
-        ? body.username.trim().toLowerCase()
+      typeof body?.username ===
+      "string"
+        ? body.username
+            .trim()
+            .toLowerCase()
         : "";
 
-    if (!/^[a-z0-9_.-]{1,32}$/.test(alias)) {
+    if (
+      !/^[a-z0-9_.-]{1,32}$/.test(
+        alias
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -188,6 +263,8 @@ export async function POST(request: NextRequest) {
 
     await client.query("BEGIN");
 
+    transactionStarted = true;
+
     await client.query(
       `
       INSERT INTO user_data_info (
@@ -200,27 +277,36 @@ export async function POST(request: NextRequest) {
       [user.id]
     );
 
-    const userDataResult = await client.query(
-      `
-      SELECT alias_tokens
-      FROM user_data_info
-      WHERE user_id = $1
-      FOR UPDATE
-      `,
-      [user.id]
-    );
+    const userDataResult =
+      await client.query(
+        `
+        SELECT alias_tokens
+        FROM user_data_info
+        WHERE user_id = $1
+        FOR UPDATE
+        `,
+        [user.id]
+      );
 
-    const aliasTokens = Number(
-      userDataResult.rows[0]?.alias_tokens ?? 0
-    );
+    const aliasTokens =
+      Number(
+        userDataResult.rows[0]
+          ?.alias_tokens ?? 0
+      );
 
     if (aliasTokens <= 0) {
-      await client.query("ROLLBACK");
+      await client.query(
+        "ROLLBACK"
+      );
+
+      transactionStarted =
+        false;
 
       return NextResponse.json(
         {
           success: false,
-          error: "You do not have any alias credits.",
+          error:
+            "You do not have any alias credits.",
         },
         {
           status: 403,
@@ -229,27 +315,41 @@ export async function POST(request: NextRequest) {
     }
 
     const isPremium =
-      String(user.plan || "free")
+      String(
+        user.plan || "free"
+      )
         .trim()
-        .toLowerCase() === "premium";
+        .toLowerCase() ===
+      "premium";
 
-    const maxSlots = isPremium ? 10 : 5;
+    const maxSlots =
+      isPremium ? 10 : 5;
 
-    const countResult = await client.query(
-      `
-      SELECT COUNT(*)::int AS count
-      FROM user_aliases
-      WHERE user_id = $1
-      `,
-      [user.id]
-    );
+    const countResult =
+      await client.query(
+        `
+        SELECT COUNT(*)::int AS count
+        FROM user_aliases
+        WHERE user_id = $1
+        `,
+        [user.id]
+      );
 
-    const aliasCount = Number(
-      countResult.rows[0]?.count ?? 0
-    );
+    const aliasCount =
+      Number(
+        countResult.rows[0]
+          ?.count ?? 0
+      );
 
-    if (aliasCount >= maxSlots) {
-      await client.query("ROLLBACK");
+    if (
+      aliasCount >= maxSlots
+    ) {
+      await client.query(
+        "ROLLBACK"
+      );
+
+      transactionStarted =
+        false;
 
       return NextResponse.json(
         {
@@ -262,23 +362,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const usernameResult = await client.query(
-      `
-      SELECT 1
-      FROM users
-      WHERE LOWER(username) = LOWER($1)
-      LIMIT 1
-      `,
-      [alias]
-    );
+    const usernameResult =
+      await client.query(
+        `
+        SELECT 1
+        FROM users
+        WHERE LOWER(username) = LOWER($1)
+        LIMIT 1
+        `,
+        [alias]
+      );
 
-    if (usernameResult.rows[0]) {
-      await client.query("ROLLBACK");
+    if (
+      usernameResult.rows[0]
+    ) {
+      await client.query(
+        "ROLLBACK"
+      );
+
+      transactionStarted =
+        false;
 
       return NextResponse.json(
         {
           success: false,
-          error: "That username is already in use.",
+          error:
+            "That username is already in use.",
         },
         {
           status: 409,
@@ -286,23 +395,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingAliasResult = await client.query(
-      `
-      SELECT 1
-      FROM user_aliases
-      WHERE LOWER(alias) = LOWER($1)
-      LIMIT 1
-      `,
-      [alias]
-    );
+    const existingAliasResult =
+      await client.query(
+        `
+        SELECT 1
+        FROM user_aliases
+        WHERE LOWER(alias) = LOWER($1)
+        LIMIT 1
+        `,
+        [alias]
+      );
 
-    if (existingAliasResult.rows[0]) {
-      await client.query("ROLLBACK");
+    if (
+      existingAliasResult
+        .rows[0]
+    ) {
+      await client.query(
+        "ROLLBACK"
+      );
+
+      transactionStarted =
+        false;
 
       return NextResponse.json(
         {
           success: false,
-          error: "That alias is already in use.",
+          error:
+            "That alias is already in use.",
         },
         {
           status: 409,
@@ -310,59 +429,91 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const aliasResult = await client.query(
-      `
-      INSERT INTO user_aliases (
-        user_id,
-        alias
-      )
-      VALUES ($1, $2)
-      RETURNING
-        id,
-        alias,
-        created_at,
-        updated_at
-      `,
-      [
-        user.id,
-        alias,
-      ]
+    const aliasResult =
+      await client.query(
+        `
+        INSERT INTO user_aliases (
+          user_id,
+          alias
+        )
+        VALUES ($1, $2)
+        RETURNING
+          id,
+          alias,
+          created_at,
+          updated_at
+        `,
+        [
+          user.id,
+          alias,
+        ]
+      );
+
+    const tokenResult =
+      await client.query(
+        `
+        UPDATE user_data_info
+        SET
+          alias_tokens = alias_tokens - 1,
+          updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING alias_tokens
+        `,
+        [user.id]
+      );
+
+    await client.query(
+      "COMMIT"
     );
 
-    const tokenResult = await client.query(
-      `
-      UPDATE user_data_info
-      SET
-        alias_tokens = alias_tokens - 1,
-        updated_at = NOW()
-      WHERE user_id = $1
-      RETURNING alias_tokens
-      `,
-      [user.id]
-    );
-
-    await client.query("COMMIT");
+    transactionStarted =
+      false;
 
     return NextResponse.json({
       success: true,
       alias: {
-        id: String(aliasResult.rows[0].id),
-        username: String(aliasResult.rows[0].alias),
-        createdAt: aliasResult.rows[0].created_at,
-        updatedAt: aliasResult.rows[0].updated_at,
+        id: String(
+          aliasResult.rows[0].id
+        ),
+        username: String(
+          aliasResult.rows[0]
+            .alias
+        ),
+        createdAt:
+          aliasResult.rows[0]
+            .created_at,
+        updatedAt:
+          aliasResult.rows[0]
+            .updated_at,
       },
       aliasTokens: Number(
-        tokenResult.rows[0]?.alias_tokens ?? 0
+        tokenResult.rows[0]
+          ?.alias_tokens ?? 0
       ),
     });
-  } catch (error: any) {
-    await client.query("ROLLBACK");
+  } catch (error: unknown) {
+    if (
+      transactionStarted
+    ) {
+      await client
+        .query("ROLLBACK")
+        .catch(() => {});
+    }
 
-    if (error?.code === "23505") {
+    const postgresError =
+      error as {
+        code?: string;
+      };
+
+    if (
+      postgresError?.code ===
+      "23505"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "That alias is already in use.",
+          error:
+            "That alias is already in use.",
         },
         {
           status: 409,
@@ -370,12 +521,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("ALIAS_CREATE_ERROR:", error);
+    console.error(
+      "ALIAS_CREATE_ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to create alias.",
+        error:
+          "Failed to create alias.",
       },
       {
         status: 500,
@@ -386,11 +541,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  const client = await pool.connect();
+export async function DELETE(
+  request: NextRequest
+) {
+  const client =
+    await pool.connect();
+
+  let transactionStarted =
+    false;
 
   try {
-    const user = await getAuthenticatedUser(request);
+    const user =
+      await getAuthenticatedUser(
+        request
+      );
 
     if (!user) {
       return NextResponse.json(
@@ -404,10 +568,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const id = Number(body?.id);
+    const body =
+      await request.json();
 
-    if (!Number.isInteger(id) || id <= 0) {
+    const id =
+      Number(body?.id);
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -420,6 +590,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     await client.query("BEGIN");
+
+    transactionStarted = true;
 
     await client.query(
       `
@@ -443,28 +615,37 @@ export async function DELETE(request: NextRequest) {
       [user.id]
     );
 
-    const aliasResult = await client.query(
-      `
-      DELETE FROM user_aliases
-      WHERE id = $1
-        AND user_id = $2
-      RETURNING
-        id,
-        alias
-      `,
-      [
-        id,
-        user.id,
-      ]
-    );
+    const aliasResult =
+      await client.query(
+        `
+        DELETE FROM user_aliases
+        WHERE id = $1
+          AND user_id = $2
+        RETURNING
+          id,
+          alias
+        `,
+        [
+          id,
+          user.id,
+        ]
+      );
 
-    if (!aliasResult.rows[0]) {
-      await client.query("ROLLBACK");
+    if (
+      !aliasResult.rows[0]
+    ) {
+      await client.query(
+        "ROLLBACK"
+      );
+
+      transactionStarted =
+        false;
 
       return NextResponse.json(
         {
           success: false,
-          error: "Alias not found.",
+          error:
+            "Alias not found.",
         },
         {
           status: 404,
@@ -472,39 +653,61 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const tokenResult = await client.query(
-      `
-      UPDATE user_data_info
-      SET
-        alias_tokens = alias_tokens + 1,
-        updated_at = NOW()
-      WHERE user_id = $1
-      RETURNING alias_tokens
-      `,
-      [user.id]
+    const tokenResult =
+      await client.query(
+        `
+        UPDATE user_data_info
+        SET
+          alias_tokens = alias_tokens + 1,
+          updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING alias_tokens
+        `,
+        [user.id]
+      );
+
+    await client.query(
+      "COMMIT"
     );
 
-    await client.query("COMMIT");
+    transactionStarted =
+      false;
 
     return NextResponse.json({
       success: true,
       removedAlias: {
-        id: String(aliasResult.rows[0].id),
-        username: String(aliasResult.rows[0].alias),
+        id: String(
+          aliasResult.rows[0].id
+        ),
+        username: String(
+          aliasResult.rows[0]
+            .alias
+        ),
       },
       aliasTokens: Number(
-        tokenResult.rows[0]?.alias_tokens ?? 0
+        tokenResult.rows[0]
+          ?.alias_tokens ?? 0
       ),
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (
+      transactionStarted
+    ) {
+      await client
+        .query("ROLLBACK")
+        .catch(() => {});
+    }
 
-    console.error("ALIAS_DELETE_ERROR:", error);
+    console.error(
+      "ALIAS_DELETE_ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to remove alias.",
+        error:
+          "Failed to remove alias.",
       },
       {
         status: 500,
