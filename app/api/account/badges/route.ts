@@ -102,19 +102,33 @@ async function getAuthenticatedUser(
     return null;
   }
 
-  const sessionUser =
-    await verifySessionToken(
-      sessionToken
-    );
+  const verified =
+    await verifySessionToken(sessionToken);
 
-  if (!sessionUser?.id) {
+  if (!verified) {
+    return null;
+  }
+
+  const session =
+    verified as unknown as {
+      userId?: string;
+      user_id?: string;
+      user?: {
+        id?: string;
+      };
+    };
+
+  const userId =
+    session.userId ||
+    session.user_id ||
+    session.user?.id;
+
+  if (!userId) {
     return null;
   }
 
   const user =
-    await getUserById(
-      sessionUser.id
-    );
+    await getUserById(userId);
 
   if (!user) {
     return null;
