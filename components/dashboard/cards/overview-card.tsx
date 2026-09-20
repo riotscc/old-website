@@ -234,9 +234,9 @@ export default function OverviewCard() {
       <div className="pointer-events-none absolute inset-y-0 right-0 w-[70%] overflow-hidden opacity-70">
         <Dither
           waveColor={[
-            0.01568627450980392,
-            0.0392156862745098,
-            0.5215686274509804,
+            0.807843137254902,
+            0.7843137254901961,
+            0.9176470588235294,
           ]}
           disableAnimation={false}
           enableMouseInteraction={false}
@@ -252,13 +252,13 @@ export default function OverviewCard() {
 
       <div className="relative z-10 p-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-[#5360ff]/20 bg-[#5360ff]/10">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-[#CEC8EA]/20 bg-[#CEC8EA]/10">
             <HugeiconsIcon
               icon={Diamond02Icon}
               size={16}
               color="currentColor"
               strokeWidth={1.8}
-              className="text-[#6873ff]"
+              className="text-[#CEC8EA]"
             />
           </div>
 
@@ -283,7 +283,7 @@ export default function OverviewCard() {
 
           <Link
             href="/store"
-            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-[#2832F9] text-[10px] font-semibold text-white transition-all duration-200 hover:bg-[#3540ff]"
+            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-[#CEC8EA] text-[10px] font-semibold text-white transition-all duration-200 hover:bg-[#CEC8EA]"
           >
             Get Premium
 
@@ -560,7 +560,7 @@ function DeviceAnalytics({
     <div className="min-h-[270px] rounded-[20px] border border-black/[0.08] bg-white p-5 dark:border-white/[0.065] dark:bg-[#0c0c0c]">
       <p className="text-[11px] font-semibold text-black/80 dark:text-white/80">
         Visitor Devices in the last{" "}
-        <span className="text-[#5360ff]">
+        <span className="text-[#CEC8EA]">
           {range} {range === 1 ? "day" : "days"}
         </span>
       </p>
@@ -679,7 +679,7 @@ function DeviceRow({
             duration: 0.55,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="h-full rounded-full bg-[#2832F9]"
+          className="h-full rounded-full bg-[#CEC8EA]"
         />
       </div>
     </div>
@@ -811,7 +811,7 @@ function CountryAnalytics({
                       delay: index * 0.025,
                       ease: [0.22, 1, 0.36, 1],
                     }}
-                    className="h-full rounded-full bg-[#2832F9]"
+                    className="h-full rounded-full bg-[#CEC8EA]"
                   />
                 </div>
               </motion.div>
@@ -880,9 +880,9 @@ function createDeviceGradient({
     3.6;
 
   return `conic-gradient(
-    #2832F9 0deg ${desktopEnd}deg,
-    rgba(40,50,249,0.72) ${desktopEnd}deg ${mobileEnd}deg,
-    rgba(40,50,249,0.42) ${mobileEnd}deg ${tabletEnd}deg,
+    #CEC8EA 0deg ${desktopEnd}deg,
+    rgba(206,200,234,0.72) ${desktopEnd}deg ${mobileEnd}deg,
+    rgba(206,200,234,0.42) ${mobileEnd}deg ${tabletEnd}deg,
     rgba(255,255,255,0.14) ${tabletEnd}deg ${unknownEnd}deg
   )`;
 }

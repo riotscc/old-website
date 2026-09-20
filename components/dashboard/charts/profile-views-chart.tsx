@@ -257,7 +257,7 @@ export default function ProfileViewsChart({
 
           <p className="mt-1 text-[9px] text-black/35 dark:text-white/25">
             Views over the last{" "}
-            <span className="text-[#5360ff]">
+            <span className="text-[#CEC8EA]">
               {range} {range === 1 ? "day" : "days"}
             </span>
           </p>
@@ -310,19 +310,19 @@ export default function ProfileViewsChart({
                 >
                   <stop
                     offset="0%"
-                    stopColor="#2832F9"
+                    stopColor="#CEC8EA"
                     stopOpacity="0.22"
                   />
 
                   <stop
                     offset="70%"
-                    stopColor="#2832F9"
+                    stopColor="#CEC8EA"
                     stopOpacity="0.06"
                   />
 
                   <stop
                     offset="100%"
-                    stopColor="#2832F9"
+                    stopColor="#CEC8EA"
                     stopOpacity="0"
                   />
                 </linearGradient>
@@ -376,7 +376,7 @@ export default function ProfileViewsChart({
                   key={`line-${range}-${totalViews}`}
                   d={plottedLinePath}
                   fill="none"
-                  stroke="#2832F9"
+                  stroke="#CEC8EA"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -414,7 +414,7 @@ export default function ProfileViewsChart({
                         cx={point.x}
                         cy={point.y}
                         r="2.5"
-                        fill="#2832F9"
+                        fill="#CEC8EA"
                         opacity={
                           activeIndex === index ? 0 : 1
                         }
@@ -442,7 +442,7 @@ export default function ProfileViewsChart({
                   cx={plottedCoordinates[0].x}
                   cy={plottedCoordinates[0].y}
                   r="3.5"
-                  fill="#2832F9"
+                  fill="#CEC8EA"
                 />
               )}
 
@@ -464,7 +464,7 @@ export default function ProfileViewsChart({
                     cx={plottedActivePoint.x}
                     cy={plottedActivePoint.y}
                     r="8"
-                    fill="#2832F9"
+                    fill="#CEC8EA"
                     fillOpacity="0.16"
                   />
 
@@ -472,7 +472,7 @@ export default function ProfileViewsChart({
                     cx={plottedActivePoint.x}
                     cy={plottedActivePoint.y}
                     r="3.5"
-                    fill="#2832F9"
+                    fill="#CEC8EA"
                     stroke="currentColor"
                     strokeWidth="1.5"
                     vectorEffect="non-scaling-stroke"
@@ -523,7 +523,7 @@ export default function ProfileViewsChart({
                   </p>
 
                   <div className="mt-1.5 flex items-center">
-                    <span className="mr-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2832F9]" />
+                    <span className="mr-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#CEC8EA]" />
 
                     <span className="text-[10px] font-medium text-black/55 dark:text-white/45">
                       Views
